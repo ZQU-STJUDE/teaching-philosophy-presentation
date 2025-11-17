@@ -14,6 +14,45 @@ filters:
   - quarto
 ---
 
+## 👩‍🎓 My Academic & Personal Journey
+```{=html}
+<div style="display: flex; align-items: flex-start; gap: 2em;">
+
+  <div style="flex: 1; min-width: 200px;">
+    <img src="images/ZhuoQu.png" style="width: 100%;">
+    <div style="text-align: center; font-size: 0.8em; margin-top: 0.5em;">
+      <em>Dr. Zhuo Qu – Biostatistician & Adjunct Faculty at St. Jude Graduate School</em>
+    </div>
+  </div>
+
+  <div style="flex: 2.5;">
+    <h3>🎓 Academic Journey</h3>
+    <ul>
+      <li>🌱 <strong>Grew up in China</strong> and completed my <strong>Bachelor's degree</strong></li>
+      <li>🌍 Moved to <strong>Saudi Arabia</strong> for my <strong>M.S. and Ph.D.</strong></li>
+      <li>💻 Part-Time <strong>CS Bachelor's</strong> at University of London, Goldsmiths</li>
+      <li>📚 <strong>Math & Econ</strong> → <strong>(Bio)Statistics</strong> → <strong>Computer Science</strong></li>
+    </ul>
+
+    <h3>🌟 Beyond Academics</h3>
+    <ul>
+      <li>🧠 I love reading <strong>biographies/autobiographies</strong> — currently reading <strong><em>The Snowball</em></strong> 📘 about Warren Buffett</li>
+      <li>✍️ I enjoy sharing <strong>distincts</strong> and <strong>patterns</strong> I found in life, connecting <strong>ideas and inspirations</strong> with <strong>investing</strong></li>
+      <li>🎨 I let my <strong>imagination run wild</strong></li>
+    </ul>
+  </div>
+
+</div>
+```
+
+<div style="text-align:center; margin-bottom: 20px; margin-top: 2em;">
+<strong>View this presentation online:</strong><br>
+<a href="https://github.com/ZQU-STJUDE/teaching-philosophy-presentation/blob/main/presentation_interview.html">https://github.com/ZQU-STJUDE/teaching-philosophy-presentation/blob/main/presentation_interview.html</a><br>
+<img src="qr-code.png" alt="QR code for presentation link" style="width:150px; margin-top:10px;" />
+</div>
+
+---
+
 ## 🚀 Welcome: A *Not-So-Linear* Story
 
 Imagine you're running a lemonade stand. Business booms when it's hot, crashes when it rains, and your friend insists that wearing a yellow T-shirt increases sales.  
@@ -2470,15 +2509,15 @@ AI is revolutionizing everything. Students need:
 
 ::: {.columns}
 
-::: {.column width="50%"}
+::: {.column width="55%"}
 
 ::: {.fragment}
 ```{mermaid}
-%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#dbeafe','primaryTextColor':'#1e40af','primaryBorderColor':'#3b82f6','lineColor':'#3b82f6','secondaryColor':'#fef3c7','tertiaryColor':'#d1fae5'}}}%%
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#dbeafe','primaryTextColor':'#1e40af','primaryBorderColor':'#3b82f6','lineColor':'#3b82f6','secondaryColor':'#fef3c7','tertiaryColor':'#d1fae5'}, 'flowchart': {'htmlLabels': true, 'wrappingWidth': 200}}}%%
 graph TB
-  A[China's University of Political Science and Law,<br/> China<br/>Free/Almost Free Education before Bachelor,<br/> and Bachelor education in Math and Economics] -->|Gratitude| B[ King Abdullah University of Science and Technology,<br/>  Saudi Arabia<br/>Scholarship-Supported Master & PhD in Statistics]
-  B -->|Continued Learning| C[🌍 Global Research<br/>St. Jude Children's Research Hospital]
-  C -->|Giving Back| D[👨‍🏫 Teaching<br/>Next Generation]
+  A["<b>China's University of<br/>Political Science and Law</b><br/>China<br/><br/>Free/Almost Free Education<br/>before Bachelor,<br/>and Bachelor education<br/>in Math and Economics"] -->|Gratitude| B["<b>King Abdullah University of<br/>Science and Technology</b><br/>Saudi Arabia<br/><br/>Scholarship-Supported<br/>Master & PhD<br/>in Statistics"]
+  B -->|Continued Learning| C["🌍 <b>Global Research</b><br/>St. Jude Children's<br/>Research Hospital"]
+  C -->|Giving Back| D["👨‍🏫 <b>Teaching</b><br/>Next Generation"]
     
   style A fill:#fef3c7,stroke:#f59e0b,stroke-width:3px
   style B fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
@@ -2487,11 +2526,9 @@ graph TB
 ```
 :::
 
-
 :::
 
-
-::: {.column width="50%"}
+::: {.column width="45%"}
 
 ::: {.fragment style="background: #fef3c7; padding: 20px; border-radius: 10px; margin: 10px 0; border-left: 5px solid #f59e0b;"}
 #### 🌱 **My Story: Education Changed Everything**
