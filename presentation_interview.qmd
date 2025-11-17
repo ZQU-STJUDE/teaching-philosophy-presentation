@@ -1,0 +1,2699 @@
+---
+title: "Linear Regression: From Lemonade Stands to Least Squares"
+subtitle: "An Interactive Journey Through the Math Behind the Line"
+author: "Dr. Zhuo Qu"
+date: today
+format: 
+  revealjs:
+    theme: [default, custom.scss]
+    slide-number: true
+    incremental: true
+execute:
+  enabled: true
+filters:
+  - quarto
+---
+
+## 🚀 Welcome: A *Not-So-Linear* Story
+
+Imagine you're running a lemonade stand. Business booms when it's hot, crashes when it rains, and your friend insists that wearing a yellow T-shirt increases sales.  
+
+**Goal for today:** Explore regression through storytelling, interactive playgrounds, geometric intuition, and hands-on exercises — all inside a `.html` file (no R/Shiny needed).
+
+---
+
+## 🍋 Story Setup: The Lemonade Mystery
+
+Your sales over 30 days depend on:
+
+ - Temperature 🌡️  
+ - Rainfall 🌧️
+ - Whether you wore a yellow T-shirt 👕  
+ - Random large purchases by kids 🥤
+
+**Task:** Predict daily sales using temperature and explore slope, intercept, and noise effects interactively.
+
+---
+
+## Lemonade Sales Data Overview {.scrollable}
+```{ojs}
+lemonadeData = Array.from({length: 31}, (_, i) => {
+  const day = `2025-10-${(i+1).toString().padStart(2, '0')}`;
+  const temperature = [80.5,78.2,82.1,79.5,84.0,77.3,85.2,81.8,79.0,83.4,75.9,84.6,82.5,74.7,80.2,86.1,76.4,78.8,79.9,83.1,85.7,88.4,84.2,82.7,85.0,78.5,81.2,80.0,77.8,83.9,74.0][i];
+  const yellow_tshirt = [true,false,true,false,true,false,true,false,false,true,false,true,false,true,false,true,false,true,false,true,true,false,false,true,true,false,true,false,true,false,false][i];
+  const big_purchase = [10,5,0,0,15,0,20,0,0,5,0,10,0,0,0,10,0,0,0,0,10,15,0,0,0,0,20,15,0,5,0][i];
+  
+  let rainfall = 0;
+  if (Math.random() < 0.3) {
+    const u1 = Math.random();
+    const u2 = Math.random();
+    const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+    rainfall = Math.max(0, +(16.7 + 3 * z).toFixed(1));
+  }
+  
+  let sales = 40 + 0.7 * temperature + big_purchase + (yellow_tshirt ? 5 : 0);
+  if (rainfall > 0) sales -= 12 + 0.3 * rainfall;
+  
+  const u1_err = Math.random();
+  const u2_err = Math.random();
+  const error = 4 * Math.sqrt(-2.0 * Math.log(u1_err)) * Math.cos(2.0 * Math.PI * u2_err);
+  sales += error;
+  sales = Math.round(sales);
+  
+  return { day, sales, temperature, rainfall, yellow_tshirt, big_purchase };
+})
+```
+```{ojs}
+first7Days = lemonadeData.slice(0,7)
+```
+
+### The Data Structure
+```{ojs}
+{
+  const data = first7Days.map((d, i) => ({
+    id: i + 1,
+    day: d.day,
+    sales: d.sales,
+    temperature: d.temperature,
+    precipitation: d.rainfall,
+    yellow_tshirt: d.yellow_tshirt ? "Yes" : "No",
+    big_purchase: d.big_purchase
+  }));
+  return Inputs.table(data, {
+    columns: ["id", "day", "sales", "temperature", "precipitation", "yellow_tshirt", "big_purchase"],
+    header: {
+      id: "Day #",
+      day: "Date",
+      sales: "Sales",
+      temperature: "Daily Average Temperature (∘F)",
+      precipitation: "Daily accumulated rainfall (mm)",
+      yellow_tshirt: "Yellow T-shirt",
+      big_purchase: "Big Purchase"
+    }
+  });
+}
+```
+```{ojs}
+Plot.plot({
+  marks: [
+    Plot.barY(first7Days, {x: "day", y: "sales", fill: "#FFA500"})
+  ],
+  x: {label: "Day"},
+  y: {label: "Number of Lemonades Sold"},
+  title: "Lemonade Sales: First 7 Days"
+})
+```
+
+---
+
+## 📘 Linear Regression Model: Mathematical Language {.incremental .smaller .scrollable}
+
+### **Mathematical Language**
+The simple linear regression model:
+$$
+y = \beta_0 + \beta_1 x + \varepsilon
+$$
+
+::: {.incremental}
+
+### **What do $y$ and $x$ mean?**
+
+- $y$ is the **response variable** (outcome, dependent variable)
+- $x$ is the **predictor variable** (explanatory, independent variable)
+
+### **What do $\beta_0$, $\beta_1$, and $\varepsilon$ mean?**
+
+- $\beta_0$ (intercept): Value of $y$ when $x=0$
+- $\beta_1$ (slope): Change in $y$ for one unit change in $x$
+- $\varepsilon$ (noise): Random error not explained by $x$
+
+### **Which parameters are estimated?**
+
+- $x$ and $y$ are **observed** (given in your data)
+- $\beta_0$ and $\beta_1$ are **estimated** from the data
+- $\varepsilon$ represents **unexplained variation** (not directly estimated)
+
+:::
+
+---
+
+## 📘 After Estimation: The Fitted Regression Equation {.incremental .scrollable}
+
+Once we estimate $\beta_0$ and $\beta_1$ from the data, we get the fitted regression equation:
+
+$$
+\widehat{y} = \widehat{\beta}_0 + \widehat{\beta}_1 x
+$$
+
+::: {.incremental}
+
+Where:
+
+- $\widehat{y}$ is the **predicted value** of $y$ for a given $x$
+- $\widehat{\beta}_0$ and $\widehat{\beta}_1$ are the **estimated** intercept and slope
+- The "hat" notation (^) indicates these are estimates, not true population values
+
+This equation allows us to make predictions for $y$ using values of $x$ in our data!
+
+:::
+
+---
+
+## ❓ Quick Check: Does $\widehat{y}$ Equal $y$? {.incremental .scrollable}
+
+::: {.incremental}
+
+- **Question:** Is the predicted value $\widehat{y}$ always equal to the observed value $y$?
+
+- **Think about it:** If our model is perfect, would we expect $\widehat{y} = y$ for every observation?
+
+- **Answer:** Generally, **no**! There is usually a deviation between $\widehat{y}$ and $y$.
+
+- This deviation is called the **residual**:
+$$
+e_i = y_i - \widehat{y}_i
+$$
+
+- Understanding residuals is key to evaluating how well our model fits the data!
+
+:::
+
+---
+
+## 📘 Linear Regression Model: Lemonade Stand Examples {.incremental .scrollable}
+
+Let's see concrete examples using our lemonade stand data. Each model uses **one predictor** to explain sales:
+
+::: {.incremental}
+
+- **1. Sales vs Temperature** 🌡️
+$$
+\text{Sales} = \beta_0 + \beta_1 \times \text{Temperature} + \varepsilon
+$$
+
+- Temperature: average daily temperature in °F
+- $\beta_0$: Expected sales when temperature is 0°F (baseline)
+- $\beta_1$: How much do sales change per 1°F increase?
+
+- **2. Sales vs Precipitation** 🌧️
+$$
+\text{Sales} = \beta_0 + \beta_1 \times \text{Precipitation} + \varepsilon
+$$
+
+- Precipitation: accumulated daily rainfall in mm
+- $\beta_0$: Expected sales when there is no rain (baseline)
+- $\beta_1$: How much do sales change per 1mm of rain?
+
+:::
+
+---
+
+## 📘 More Lemonade Stand Examples {.incremental .scrollable}
+
+::: {.incremental}
+
+- **3. Sales vs Yellow T-shirt** 👕
+$$
+\text{Sales} = \beta_0 + \beta_1 \times \text{YellowTshirt} + \varepsilon
+$$
+
+- YellowTshirt: 1 if wore yellow shirt, 0 otherwise
+- $\beta_0$: Expected sales when **not** wearing yellow shirt (baseline)
+- $\beta_1$: Difference in sales with vs without yellow shirt
+
+- **4. Sales vs Big Purchases** 🥤
+$$
+\text{Sales} = \beta_0 + \beta_1 \times \text{BigPurchase} + \varepsilon
+$$
+
+- BigPurchase: number of large purchases by kids
+- $\beta_0$: Expected sales when there are **no** big purchases (baseline)
+- $\beta_1$: How much do sales increase per big purchase?
+
+
+- **Question:** Which predictor do you think has the strongest effect on sales? 🤔
+
+:::
+
+---
+
+## 🟠 Interactive: Sales vs Temperature Regression Playground {.scrollable}
+```{ojs}
+//| panel: input
+viewof intercept0 = Inputs.range([-10,70], {value:40, step:1, label:"Intercept (β₀)"})
+viewof slope0 = Inputs.range([0,2], {value:0.7, step:0.01, label:"Slope (β₁)"})
+```
+```{ojs}
+temp = lemonadeData.map(d => d.temperature);
+sales = lemonadeData.map(d => d.sales);
+observedMin = Math.min(...temp);
+observedMax = Math.max(...temp);
+```
+```{ojs}
+solidLine = {
+  const points = [];
+  for (let t = observedMin; t <= observedMax; t += 0.1) {
+    points.push({temperature: t, sales: intercept0 + slope0 * t});
+  }
+  return points;
+}
+```
+```{ojs}
+dashedLineLeft = Array.from(
+  {length: Math.floor((observedMin - 0) / 0.1)},
+  (_, i) => {
+    const t = 0 + i * 0.1;
+    return {temperature: t, sales: intercept0 + slope0 * t};
+  }
+)
+```
+```{ojs}
+dashedLineRight = Array.from(
+  {length: Math.floor((90 - observedMax) / 0.1)},
+  (_, i) => {
+    const t = observedMax + i * 0.1;
+    return {temperature: t, sales: intercept0 + slope0 * t};
+  }
+)
+```
+```{ojs}
+md`**Try moving the sliders!** See how changing β₀ (intercept) and β₁ (slope) affects the fit line.`
+```
+```{ojs}
+Plot.plot({
+  marks: [
+    Plot.dot(lemonadeData, {x: "temperature", y: "sales", fill: "#e67e22", r: 4, title: d => d.day}),
+    Plot.line(solidLine, {x: "temperature", y: "sales", stroke: "#34495e", strokeWidth: 3}),
+    Plot.line(dashedLineLeft, {x: "temperature", y: "sales", stroke: "#34495e", strokeWidth: 2, strokeDasharray: "6,4"}),
+    Plot.line(dashedLineRight, {x: "temperature", y: "sales", stroke: "#34495e", strokeWidth: 2, strokeDasharray: "6,4"}),
+    Plot.text([
+      {temperature: 2, sales: 120, text: `Sales = ${intercept0.toFixed(2)} + ${slope0.toFixed(2)} × Temperature`}
+    ], {
+      x: "temperature", y: "sales", text: "text", fontSize: 18, fontWeight: "bold", fill: "#34495e", dy: 20, dx: 150
+    })
+  ],
+  x: {domain: [0, 90], label: "Temperature (°F)"},
+  y: {domain: [0, 130], label: "Number of Lemonades Sold"},
+  width: 600,
+  height: 400,
+  grid: true,
+  title: "Sales vs Temperature: Adjust the Line!",
+  zoom: true
+})
+```
+
+---
+
+## 📊 What is a Residual?
+
+::: {.columns}
+
+::: {.column width="30%"}
+```{ojs}
+viewof selectedPoint = Inputs.select(
+  lemonadeData.map((d, i) => i),
+  {
+    label: "Select a data point:",
+    format: i => `Day ${i + 1} (${lemonadeData[i].day})`
+  }
+)
+```
+```{ojs}
+{
+  const point = lemonadeData[selectedPoint];
+  const predicted = 40 + 0.7 * point.temperature;
+  const residual = point.sales - predicted;
+  
+  return md`
+### Definition
+**Residual** = Observed - Predicted
+
+eᵢ = yᵢ − ŷᵢ
+
+### Example: Day ${selectedPoint + 1}
+- **Observed Sales (yᵢ)**: ${point.sales} lemonades
+- **Temperature**: ${point.temperature}°F
+- **Predicted Sales (ŷᵢ)**: ${predicted.toFixed(1)} lemonades
+- **Residual (eᵢ)**: ${residual.toFixed(1)} lemonades
+
+${residual > 0 ? '✅ Sold MORE than predicted!' : '❌ Sold LESS than predicted!'}
+  `;
+}
+```
+:::
+
+::: {.column width="70%"}
+```{ojs}
+{
+  const point = lemonadeData[selectedPoint];
+  const predicted = 40 + 0.7 * point.temperature;
+  
+  return Plot.plot({
+    marks: [
+      Plot.dot(
+        lemonadeData.filter((_, i) => i !== selectedPoint),
+        {x: "temperature", y: "sales", fill: "#e67e22", r: 4, opacity: 0.3}
+      ),
+      Plot.dot(
+        [point],
+        {x: "temperature", y: "sales", fill: "#e74c3c", r: 8, stroke: "#c0392b", strokeWidth: 2}
+      ),
+      Plot.line(
+        [{temperature: 74, sales: 40 + 0.7 * 74}, {temperature: 89, sales: 40 + 0.7 * 89}],
+        {x: "temperature", y: "sales", stroke: "#34495e", strokeWidth: 2}
+      ),
+      Plot.link(
+        [{
+          x1: point.temperature,
+          y1: point.sales,
+          x2: point.temperature,
+          y2: predicted
+        }],
+        {
+          x1: "x1", y1: "y1", x2: "x2", y2: "y2",
+          stroke: "#e74c3c",
+          strokeWidth: 3,
+          strokeDasharray: "5,5",
+          markerEnd: "arrow"
+        }
+      ),
+      Plot.text(
+        [{
+          temperature: point.temperature,
+          sales: (point.sales + predicted) / 2,
+          text: `eᵢ = ${(point.sales - predicted).toFixed(1)}`
+        }],
+        {
+          x: "temperature",
+          y: "sales",
+          text: "text",
+          fontSize: 16,
+          fontWeight: "bold",
+          fill: "#e74c3c",
+          dx: 10
+        }
+      ),
+      Plot.text(
+        [{
+          temperature: point.temperature,
+          sales: point.sales,
+          text: `(xᵢ=${point.temperature}, yᵢ=${point.sales})`
+        }],
+        {
+          x: "temperature",
+          y: "sales",
+          text: "text",
+          fontSize: 16,
+          fill: "#e74c3c",
+          dy: -14
+        }
+      ),
+      Plot.text(
+        [{
+          temperature: point.temperature,
+          sales: predicted,
+          text: `(xᵢ=${point.temperature}, ŷᵢ=${predicted.toFixed(1)})`
+        }],
+        {
+          x: "temperature",
+          y: "sales",
+          text: "text",
+          fontSize: 16,
+          fill: "#34495e",
+          dy: 14
+        }
+      )
+    ],
+    x: {label: "Temperature (°F)"},
+    y: {label: "Sales"},
+    width: 700,
+    height: 600,
+    grid: true
+  });
+}
+```
+:::
+
+:::
+
+---
+
+## ❓ Quick Check: Understanding Residuals {.incremental}
+
+::: {.incremental}
+
+**Question:** If a data point has a residual of -5 (observed-predicted=-5), what does this mean?
+
+- (a)The model overpredicted by 5 units  
+- (b)The model underpredicted by 5 units  
+- (c)The observed value is 5 units below the regression line  
+- (d)Both a and c are correct
+
+- **Answer:** **(d) Both a and c are correct**
+
+- Since $e_i = y_i - \widehat{y}_i = -5$, this means the actual value is 5 units **below** the predicted value (the model overestimated).
+
+:::
+
+---
+
+## 📐 Loss Functions: Why Square the Residuals? {.incremental .scrollable}
+
+### **Sum of Squared Errors (SSE)**
+$$
+\text{SSE} = \sum_{i=1}^n (y_i - \widehat{y}_i)^2 = \sum_{i=1}^n e_i^2
+$$
+
+::: {.incremental}
+
+- **Question:** Why do we square the residuals instead of just summing them? 🤔
+
+- **Think about it:** What would happen if we just summed $\sum e_i$ without squaring?
+
+- **Answer:** 
+
+- Positive and negative residuals would cancel out!
+- Squaring ensures all residuals contribute positively
+- Larger errors are penalized more heavily (a 10-unit error contributes 100 to SSE)
+
+:::
+
+---
+
+## 📐 SSE: Finding the Optimal Line {.incremental .scrollable}
+
+To find the optimal intercept $\beta_0$ and slope $\beta_1$, we minimize SSE:
+
+$$
+\min_{\beta_0,\beta_1} \sum_{i=1}^n (y_i - \beta_0 - \beta_1 x_i)^2
+$$
+
+::: {.incremental}
+
+Take partial derivatives and set to zero:
+$$
+\frac{\partial SSE}{\partial \beta_0} = -2 \sum_{i=1}^n (y_i - \beta_0 - \beta_1 x_i) = 0
+$$
+$$
+\frac{\partial SSE}{\partial \beta_1} = -2 \sum_{i=1}^n x_i (y_i - \beta_0 - \beta_1 x_i) = 0
+$$
+
+Solving these equations gives the **closed-form solution**:
+$$
+\widehat{\beta}_1 = \frac{\sum_{i=1}^n (x_i - \bar{x})(y_i - \bar{y})}{\sum_{i=1}^n (x_i - \bar{x})^2}, \quad \widehat{\beta}_0 = \bar{y} - \widehat{\beta}_1 \bar{x}
+$$
+
+Where $\bar{x}$ and $\bar{y}$ are the **sample means**:
+$$
+\bar{x} = \frac{1}{n} \sum_{i=1}^n x_i, \qquad \bar{y} = \frac{1}{n} \sum_{i=1}^n y_i
+$$
+
+**Key insight:** The OLS regression line always passes through the point $(\bar{x}, \bar{y})$!
+
+:::
+
+---
+
+## 📐 Alternative Loss Functions {.incremental .scrollable}
+
+### **Sum of Absolute Errors (SAE)**
+$$
+\text{SAE} = \sum_{i=1}^n |y_i - \widehat{y}_i|
+$$
+
+::: {.incremental}
+
+- **Question:** Why would SAE be more robust to outliers than SSE? 🤔
+
+- **Answer:** 
+- SAE grows linearly with error size
+- SSE grows quadratically (squares the error)
+- Example: 10-unit error contributes 10 to SAE but 100 to SSE!
+
+- **Challenge:** Unlike SSE, there's **no closed-form solution** for SAE
+
+- Must use numerical optimization (linear programming)
+- Optimal line passes through the median
+
+:::
+
+---
+
+## 📐 Sum of Raw Errors - The Problem Child {.incremental .scrollable}
+
+### **Sum of Raw Errors (SRE)**
+$$
+\text{SRE} = \sum_{i=1}^n (y_i - \widehat{y}_i)
+$$
+
+::: {.incremental}
+
+- **Question:** What's the problem with this loss function? Think about positive and negative residuals... 🤔
+
+- **Answer:**
+
+- Positive and negative residuals **cancel out**!
+- Any line through $(\bar{x}, \bar{y})$ has SRE ≈ 0
+- Result: **Infinite solutions** - completely useless!
+
+- For any slope $\beta_1$, we can choose $\beta_0 = \bar{y} - \beta_1 \bar{x}$ to make SRE = 0.
+
+:::
+
+---
+
+## 🎯 Comparing Different Loss Functions {.scrollable}
+
+::: {.panel-tabset}
+
+### Sum of Squared Errors (SSE)
+```{ojs}
+//| echo: false
+ssrCalcs = {
+  const n = lemonadeData.length;
+  const meanTemp = lemonadeData.reduce((sum, d) => sum + d.temperature, 0) / n;
+  const meanSales = lemonadeData.reduce((sum, d) => sum + d.sales, 0) / n;
+  
+  let numerator = 0;
+  let denominator = 0;
+  for (let i = 0; i < n; i++) {
+    numerator += (lemonadeData[i].temperature - meanTemp) * (lemonadeData[i].sales - meanSales);
+    denominator += (lemonadeData[i].temperature - meanTemp) ** 2;
+  }
+  
+  const slope = numerator / denominator;
+  const intercept = meanSales - slope * meanTemp;
+  
+  const ssr = lemonadeData.reduce((sum, d) => {
+    const pred = intercept + slope * d.temperature;
+    return sum + (d.sales - pred) ** 2;
+  }, 0);
+  
+  return { slope, intercept, ssr };
+}
+```
+```{ojs}
+md`**Minimizes SSE**: Σ(yᵢ - ŷᵢ)²
+
+**Optimal Line**: Sales = ${ssrCalcs.intercept.toFixed(2)} + ${ssrCalcs.slope.toFixed(3)} × Temperature
+
+**SSE**: ${ssrCalcs.ssr.toFixed(2)}
+
+**Characteristic**: Heavily penalizes large errors (outliers have big impact)`
+```
+```{ojs}
+{
+  const temps = lemonadeData.map(d => d.temperature);
+  const minTemp = Math.min(...temps);
+  const maxTemp = Math.max(...temps);
+  const fittedLine = [
+    {temperature: minTemp, sales: ssrCalcs.intercept + ssrCalcs.slope * minTemp},
+    {temperature: maxTemp, sales: ssrCalcs.intercept + ssrCalcs.slope * maxTemp}
+  ];
+
+  return Plot.plot({
+    marks: [
+      Plot.dot(lemonadeData, {x: "temperature", y: "sales", fill: "#e67e22", r: 4}),
+      Plot.line(fittedLine, {x: "temperature", y: "sales", stroke: "#3498db", strokeWidth: 3}),
+      // Add formula annotation
+      Plot.text([
+        {
+          temperature: minTemp + 2,
+          sales: ssrCalcs.intercept + ssrCalcs.slope * (minTemp + 2) + 8,
+          text: `Minimize SSE: y = ${ssrCalcs.intercept.toFixed(2)} + ${ssrCalcs.slope.toFixed(3)} × Temp`
+        }
+      ], {
+        x: "temperature", y: "sales", text: "text", 
+        fontSize: 13, fontWeight: "bold", fill: "#3498db", textAnchor: "start"
+      })
+    ],
+    x: {label: "Temperature (°F)"},
+    y: {label: "Sales"},
+    width: 700,
+    height: 400,
+    grid: true
+  });
+}
+```
+
+### Sum of Absolute Errors (SAE)
+```{ojs}
+//| echo: false
+sarCalcs = {
+  const slope = 0.65;
+  const intercept = 45;
+  
+  const sar = lemonadeData.reduce((sum, d) => {
+    const pred = intercept + slope * d.temperature;
+    return sum + Math.abs(d.sales - pred);
+  }, 0);
+  
+  return { slope, intercept, sar };
+}
+```
+```{ojs}
+md`**Minimizes SAE**: Σ|yᵢ - ŷᵢ|
+
+**Optimal Line**: Sales ≈ ${sarCalcs.intercept.toFixed(2)} + ${sarCalcs.slope.toFixed(3)} × Temperature
+
+**SAE**: ${sarCalcs.sar.toFixed(2)}
+
+**Characteristic**: More robust to outliers (median regression)`
+```
+```{ojs}
+{
+  const temps = lemonadeData.map(d => d.temperature);
+  const minTemp = Math.min(...temps);
+  const maxTemp = Math.max(...temps);
+  const fittedLine = [
+    {temperature: minTemp, sales: sarCalcs.intercept + sarCalcs.slope * minTemp},
+    {temperature: maxTemp, sales: sarCalcs.intercept + sarCalcs.slope * maxTemp}
+  ];
+
+  return Plot.plot({
+    marks: [
+      Plot.dot(lemonadeData, {x: "temperature", y: "sales", fill: "#e67e22", r: 4}),
+      Plot.line(fittedLine, {x: "temperature", y: "sales", stroke: "#2ecc71", strokeWidth: 3}),
+      // Add formula annotation
+      Plot.text([
+        {
+          temperature: minTemp + 2,
+          sales: sarCalcs.intercept + sarCalcs.slope * (minTemp + 2) + 8,
+          text: `Minimize SAE: y = ${sarCalcs.intercept.toFixed(2)} + ${sarCalcs.slope.toFixed(3)} × Temp`
+        }
+      ], {
+        x: "temperature", y: "sales", text: "text", 
+        fontSize: 13, fontWeight: "bold", fill: "#2ecc71", textAnchor: "start"
+      })
+    ],
+    x: {label: "Temperature (°F)"},
+    y: {label: "Sales"},
+    width: 700,
+    height: 400,
+    grid: true
+  });
+}
+```
+
+### Sum of Raw Error (SRE)
+```{ojs}
+{
+  const n = lemonadeData.length;
+  const meanTemp = lemonadeData.reduce((sum, d) => sum + d.temperature, 0) / n;
+  const meanSales = lemonadeData.reduce((sum, d) => sum + d.sales, 0) / n;
+  
+  return md`**Minimizes SRE**: Σ(yᵢ - ŷᵢ)
+
+**Problem**: This doesn't work! ⚠️
+
+**Why?** Positive and negative residuals cancel out. Any line through the centroid (x̄ = ${meanTemp.toFixed(2)}°F, ȳ = ${meanSales.toFixed(2)}) has SRE ≈ 0.
+
+**Result**: Infinite solutions - not useful for finding the "best" fit!`;
+}
+```
+```{ojs}
+{
+  const n = lemonadeData.length;
+  const meanTemp = lemonadeData.reduce((sum, d) => sum + d.temperature, 0) / n;
+  const meanSales = lemonadeData.reduce((sum, d) => sum + d.sales, 0) / n;
+  const slopes = [0.3, 0.65, 1.0];
+  const temps = lemonadeData.map(d => d.temperature);
+  const minTemp = Math.min(...temps);
+  const maxTemp = Math.max(...temps);
+  
+  return Plot.plot({
+    marks: [
+      Plot.dot(lemonadeData, {x: "temperature", y: "sales", fill: "#e67e22", r: 4}),
+      // Highlight the centroid point
+      Plot.dot(
+        [{temperature: meanTemp, sales: meanSales}],
+        {x: "temperature", y: "sales", fill: "#e74c3c", r: 8, stroke: "#c0392b", strokeWidth: 2}
+      ),
+      // Add text annotation for centroid
+      Plot.text(
+        [{temperature: meanTemp, sales: meanSales, text: `(x̄=${meanTemp.toFixed(1)}, ȳ=${meanSales.toFixed(1)})`}],
+        {x: "temperature", y: "sales", text: "text", fontSize: 14, fontWeight: "bold", fill: "#e74c3c", dy: -15}
+      ),
+      ...slopes.map((slope, i) => {
+        const intercept = meanSales - slope * meanTemp;
+        return Plot.line(
+          [
+            {temperature: minTemp, sales: intercept + slope * minTemp},
+            {temperature: maxTemp, sales: intercept + slope * maxTemp}
+          ],
+          {
+            x: "temperature", 
+            y: "sales", 
+            stroke: "#95a5a6", 
+            strokeWidth: 2,
+            strokeDasharray: "5,5",
+            opacity: 0.6
+          }
+        );
+      }),
+      // Add annotation showing one example
+      Plot.text([
+        {
+          temperature: minTemp + 2,
+          sales: (meanSales - slopes[1] * meanTemp) + slopes[1] * (minTemp + 2) + 8,
+          text: `SRE ≈ 0 for all lines through (x̄, ȳ)`
+        }
+      ], {
+        x: "temperature", y: "sales", text: "text", 
+        fontSize: 13, fontWeight: "bold", fill: "#95a5a6", textAnchor: "start"
+      })
+    ],
+    x: {label: "Temperature (°F)"},
+    y: {label: "Sales"},
+    width: 700,
+    height: 400,
+    grid: true
+  });
+}
+```
+
+### Comparison of All Methods
+```{ojs}
+{
+  const n = lemonadeData.length;
+  const meanTemp = lemonadeData.reduce((sum, d) => sum + d.temperature, 0) / n;
+  const meanSales = lemonadeData.reduce((sum, d) => sum + d.sales, 0) / n;
+  
+  const temps = lemonadeData.map(d => d.temperature);
+  const minTemp = Math.min(...temps);
+  const maxTemp = Math.max(...temps);
+  
+  // SSE line (from ssrCalcs)
+  const sseSlope = ssrCalcs.slope;
+  const sseIntercept = ssrCalcs.intercept;
+  const sseValue = ssrCalcs.ssr;
+  
+  // SAE line (from sarCalcs)
+  const saeSlope = sarCalcs.slope;
+  const saeIntercept = sarCalcs.intercept;
+  const saeValue = sarCalcs.sar;
+  
+  // Two example SRE lines
+  const sreSlopes = [0.4, 0.9];
+  const sreLines = sreSlopes.map(slope => ({
+    slope: slope,
+    intercept: meanSales - slope * meanTemp
+  }));
+  
+  return html`
+    <div style="position: relative;">
+      ${Plot.plot({
+        marks: [
+          // Data points
+          Plot.dot(lemonadeData, {x: "temperature", y: "sales", fill: "#e67e22", r: 4}),
+          
+          // Centroid point
+          Plot.dot(
+            [{temperature: meanTemp, sales: meanSales}],
+            {x: "temperature", y: "sales", fill: "#e74c3c", r: 8, stroke: "#c0392b", strokeWidth: 2}
+          ),
+          
+          // SSE line (blue solid)
+          Plot.line(
+            [
+              {temperature: minTemp, sales: sseIntercept + sseSlope * minTemp},
+              {temperature: maxTemp, sales: sseIntercept + sseSlope * maxTemp}
+            ],
+            {x: "temperature", y: "sales", stroke: "#3498db", strokeWidth: 3}
+          ),
+          
+          // SAE line (green solid)
+          Plot.line(
+            [
+              {temperature: minTemp, sales: saeIntercept + saeSlope * minTemp},
+              {temperature: maxTemp, sales: saeIntercept + saeSlope * maxTemp}
+            ],
+            {x: "temperature", y: "sales", stroke: "#2ecc71", strokeWidth: 3}
+          ),
+          
+          // SRE example lines (gray dashed)
+          ...sreLines.map((line, i) => {
+            return Plot.line(
+              [
+                {temperature: minTemp, sales: line.intercept + line.slope * minTemp},
+                {temperature: maxTemp, sales: line.intercept + line.slope * maxTemp}
+              ],
+              {
+                x: "temperature", 
+                y: "sales", 
+                stroke: "#95a5a6", 
+                strokeWidth: 2,
+                strokeDasharray: "5,5",
+                opacity: 0.6
+              }
+            );
+          }),
+          
+          // Centroid label
+          Plot.text(
+            [{temperature: meanTemp, sales: meanSales, text: `(x̄, ȳ)`}],
+            {x: "temperature", y: "sales", text: "text", fontSize: 13, fontWeight: "bold", fill: "#e74c3c", dy: -15}
+          )
+        ],
+        x: {label: "Temperature (°F)"},
+        y: {label: "Sales"},
+        width: 700,
+        height: 450,
+        grid: true
+      })}
+      
+      <div style="position: absolute; bottom: 40px; right: 20px; background: white; padding: 12px; border: 1px solid #ccc; border-radius: 5px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="font-weight: bold; margin-bottom: 8px; font-size: 13px;">Legend</div>
+        <div style="display: flex; align-items: center; margin-bottom: 5px;">
+          <div style="width: 30px; height: 3px; background: #3498db; margin-right: 8px;"></div>
+          <span><strong>SSE:</strong> y = ${sseIntercept.toFixed(2)} + ${sseSlope.toFixed(3)}x (SSE = ${sseValue.toFixed(1)})</span>
+        </div>
+        <div style="display: flex; align-items: center; margin-bottom: 5px;">
+          <div style="width: 30px; height: 3px; background: #2ecc71; margin-right: 8px;"></div>
+          <span><strong>SAE:</strong> y = ${saeIntercept.toFixed(2)} + ${saeSlope.toFixed(3)}x (SAE = ${saeValue.toFixed(1)})</span>
+        </div>
+        <div style="display: flex; align-items: center; margin-bottom: 5px;">
+          <div style="width: 30px; height: 2px; background: #95a5a6; border-top: 2px dashed #95a5a6; margin-right: 8px;"></div>
+          <span><strong>SRE:</strong> y = ${sreLines[0].intercept.toFixed(2)} + ${sreLines[0].slope.toFixed(2)}x (SRE ≈ 0)</span>
+        </div>
+        <div style="display: flex; align-items: center;">
+          <div style="width: 30px; height: 2px; background: #95a5a6; border-top: 2px dashed #95a5a6; margin-right: 8px;"></div>
+          <span><strong>SRE:</strong> y = ${sreLines[1].intercept.toFixed(2)} + ${sreLines[1].slope.toFixed(2)}x (SRE ≈ 0)</span>
+        </div>
+        <div style="margin-top: 8px; font-style: italic; color: #666; font-size: 11px;">
+          All SRE lines pass through (x̄, ȳ)
+        </div>
+      </div>
+    </div>
+  `;
+}
+```
+
+:::
+
+---
+
+## ❓ Quick Check: Loss Functions {.incremental}
+
+::: {.incremental}
+
+- **Question:** If you have a dataset with a few extreme outliers, which loss function would you prefer?
+
+- (a)SSE (Sum of Squared Errors)  
+- (b)SAE (Sum of Absolute Errors)  
+- (c)SRE (Sum of Raw Errors)
+
+- **Answer:** **(b) SAE** - It's more robust to outliers because it doesn't square the errors.
+
+- **Follow-up:** Why do we typically use SSE in practice despite its sensitivity to outliers?
+- 1.Has a closed-form solution (easy to compute)
+- 2.Well-understood statistical properties
+- 3.Works well when errors are normally distributed
+
+:::
+
+---
+
+## 📊 Understanding SSR, SSE, and SST {.incremental .scrollable}
+
+### The Three Sums of Squares
+
+::: {.incremental}
+
+- 1.**SST - Total Sum of Squares**: **Total variation** in the response variable
+- $$SST = \sum_{i=1}^n (y_i - \bar{y})^2$$
+
+- Measures how spread out the data is from the mean
+
+- 2.**SSR - Sum of Squared Regression**: **Explained variation** by the model
+- $$SSR = \sum_{i=1}^n (\widehat{y}_i - \bar{y})^2$$
+
+- How much better is our line than just using $\bar{y}$?
+
+- 3.**SSE - Sum of Squared Errors**: **Unexplained variation** (residual)
+- $$SSE = \sum_{i=1}^n (y_i - \widehat{y}_i)^2$$
+
+- How far are data points from our regression line?
+
+:::
+
+---
+
+## 🎓 Introducing: Ordinary Least Squares (OLS) Regression {.incremental .scrollable}
+
+::: {.incremental}
+
+- **What is OLS?**
+
+- The method we just derived is called **Ordinary Least Squares (OLS)** regression!
+
+- **Definition:**
+
+- OLS finds the line that **minimizes the Sum of Squared Errors (SSE)**
+
+- It gives us the "best-fitting" line in the least squares sense
+- The formulas we derived are the OLS estimators:
+
+- 
+$$
+\widehat{\beta}_1^{OLS} = \frac{\sum_{i=1}^n (x_i - \bar{x})(y_i - \bar{y})}{\sum_{i=1}^n (x_i - \bar{x})^2}, \quad \widehat{\beta}_0^{OLS} = \bar{y} - \widehat{\beta}_1^{OLS} \bar{x}$$
+
+- **Why is it called "Ordinary"?**
+
+- To distinguish it from other least squares methods (weighted, generalized, etc.)
+- It's the most common and fundamental regression technique
+
+- **Key Properties:**
+
+- Unique solution (one best-fitting line)
+- Always passes through $(\bar{x}, \bar{y})$
+- Minimizes SSE = Maximizes R² (we'll see this soon!)
+
+:::
+
+---
+
+## The Fundamental Relationship {.incremental .scrollable}
+
+### For Original Least Squares (OLS) Regression: SST = SSR + SSE
+
+::: {.incremental}
+
+- Starting with:
+$$y_i - \bar{y} = (y_i - \widehat{y}_i) + (\widehat{y}_i - \bar{y})$$
+
+- Squaring both sides:
+$$(y_i - \bar{y})^2 = (y_i - \widehat{y}_i)^2 + (\widehat{y}_i - \bar{y})^2 + 2(y_i - \widehat{y}_i)(\widehat{y}_i - \bar{y})$$
+
+- The **cross-term disappears** for OLS: $\sum_{i=1}^n(y_i - \widehat{y}_i)(\widehat{y}_i - \bar{y}) = 0$
+
+- Therefore:
+$$\sum_{i=1}^n(y_i - \bar{y})^2 = \sum_{i=1}^n(y_i - \widehat{y}_i)^2 + \sum_{i=1}^n(\widehat{y}_i - \bar{y})^2$$
+
+- **Total Variation = Explained Variation + Unexplained Variation**
+:::
+
+---
+
+## $R^2$ - Coefficient of Determination {.incremental .scrollable}
+
+$$
+R^2 = \frac{\text{SSR}}{\text{SST}} = 1 - \frac{\text{SSE}}{\text{SST}}
+$$
+
+::: {.incremental}
+
+- **For OLS Regression:**
+
+- **Interpretation:**
+
+- Proportion of total variation explained by the model
+- Always ranges from 0 to 1 (or 0% to 100%)
+- $R^2 = 0.75$ means 75% of variance in $y$ is explained by $x$
+
+- **Key Insight:** Since SST is fixed for a given dataset:
+
+- **Maximizing $R^2$** is equivalent to **minimizing SSE** (for OLS only!)
+- When SSE decreases, $R^2$ increases (and vice versa)
+- The two formulas above are mathematically equivalent for OLS
+
+- **⚠️ Important Caveat:** 
+
+- These properties only hold for **OLS regression**
+- For arbitrary lines (not minimizing SSE):
+  - $R^2$ can be negative or > 1
+  - The "proportion of variance explained" interpretation is invalid
+  - Higher $R^2$ doesn't necessarily mean a better fit
+
+- **Why does this matter?** Always use OLS when interpreting R²!
+
+:::
+
+---
+
+## ❓ Quick Check: Sum of Squares {.incremental}
+
+::: {.incremental}
+
+- **Question:** If you have an Ordinary Least Square regression with $R^2 = 0.75$ and $SST = 1000$, what are SSR and SSE?
+
+- Think about the relationships:
+- $SST = SSR + SSE$
+- $R^2 = SSR/SST$
+
+- **Answer:** 
+
+- $SSR = 0.75 \times 1000 = 750$  
+- $SSE = 1000 - 750 = 250$
+
+- **Follow-up:** Is minimizing SSE the same as maximizing $R^2$ in linear regression?
+
+- **Yes!** They're equivalent for OLS regression.
+
+:::
+
+---
+
+## 📊 Understanding R² vs Adjusted R² (Part 1) {.scrollable}
+
+**The Problem with R²:**
+
+$$
+R^2 = 1 - \frac{\text{SSE}}{\text{SST}}
+$$
+```{ojs}
+//| echo: false
+html`
+<div class="fragment">
+<p><strong>Question:</strong> What happens when we add more predictors to our model? 🤔</p>
+</div>
+
+<div class="fragment">
+<p><strong>Issue:</strong> Adding ANY variable (even random noise) will <strong>never decrease</strong> R²!</p>
+<ul>
+<li>More predictors → Model becomes more flexible → Lower SSE → Higher R²</li>
+<li>This can lead to <strong>overfitting</strong> and spurious relationships</li>
+<li>Example: Adding zodiac sign, lucky number, or random noise will increase R²!</li>
+</ul>
+</div>
+`
+```
+
+**The Solution: Adjusted R²**
+
+$$
+R^2_{adj} = 1 - \frac{\text{SSE}/(n-p-1)}{\text{SST}/(n-1)}
+$$
+```{ojs}
+//| echo: false
+html`
+<div class="fragment">
+<p>Adjusted R² <strong>penalizes</strong> adding weak predictors through the <strong>degrees of freedom adjustment</strong></p>
+</div>
+`
+```
+
+---
+
+## 📊 Adjusted R²: Key Differences {.scrollable}
+
+**Comparison Table:**
+```{ojs}
+//| echo: false
+html`
+<table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+<tr style="background: #ecf0f1; font-weight: bold;">
+<td style="padding: 12px; border: 1px solid #bdc3c7;"></td>
+<td style="padding: 12px; border: 1px solid #bdc3c7;">R²</td>
+<td style="padding: 12px; border: 1px solid #bdc3c7;">Adjusted R²</td>
+</tr>
+<tr>
+<td style="padding: 12px; border: 1px solid #bdc3c7;"><strong>Formula</strong></td>
+<td style="padding: 12px; border: 1px solid #bdc3c7;">1 - SSE/SST</td>
+<td style="padding: 12px; border: 1px solid #bdc3c7;">1 - [SSE/(n-p-1)] / [SST/(n-1)]</td>
+</tr>
+<tr>
+<td style="padding: 12px; border: 1px solid #bdc3c7;"><strong>Adding variables</strong></td>
+<td style="padding: 12px; border: 1px solid #bdc3c7; background: #f8d7da;">Always increases ⚠️</td>
+<td style="padding: 12px; border: 1px solid #bdc3c7; background: #d4edda;">Can decrease if variable is weak ✓</td>
+</tr>
+<tr>
+<td style="padding: 12px; border: 1px solid #bdc3c7;"><strong>Penalizes complexity</strong></td>
+<td style="padding: 12px; border: 1px solid #bdc3c7; background: #f8d7da;">No ⚠️</td>
+<td style="padding: 12px; border: 1px solid #bdc3c7; background: #d4edda;">Yes (via degrees of freedom) ✓</td>
+</tr>
+<tr>
+<td style="padding: 12px; border: 1px solid #bdc3c7;"><strong>Use for model selection</strong></td>
+<td style="padding: 12px; border: 1px solid #bdc3c7; background: #f8d7da;">Poor choice ⚠️</td>
+<td style="padding: 12px; border: 1px solid #bdc3c7; background: #d4edda;">Better choice ✓</td>
+</tr>
+</table>
+
+<div class="fragment" style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-top: 20px;">
+<p><strong>Key Takeaway:</strong> Use <strong>Adjusted R²</strong> when comparing models with different numbers of predictors!</p>
+</div>
+`
+```
+
+---
+
+## 🎯 Understanding Degrees of Freedom {.scrollable}
+
+**What are Degrees of Freedom?**
+```{ojs}
+//| echo: false
+html`
+<div style="background: #e8f4f8; padding: 15px; border-radius: 8px; margin: 15px 0;">
+<p style="font-size: 15px; margin: 5px 0;">
+<strong>Degrees of Freedom (df)</strong> represent the number of independent pieces of information available to estimate a parameter or measure variability.
+</p>
+<p style="font-size: 15px; margin: 5px 0;">
+<strong>Intuition:</strong> df = (number of observations) - (number of parameters estimated)
+</p>
+<p style="font-size: 14px; margin: 5px 0; color: #7f8c8d;">
+Think of it as: "How many data points are free to vary after we've used some to estimate our model parameters?"
+</p>
+</div>
+`
+```
+
+**The Adjustment Factor: (n - p - 1)**
+```{ojs}
+//| echo: false
+html`
+<div class="fragment">
+<p><strong>Case 1: Simple Regression (p = 1)</strong></p>
+<p>Adjustment factor: <strong>n - 1 - 1 = n - 2</strong></p>
+</div>
+`
+```
+```{ojs}
+//| echo: false
+{
+  return html`
+<div class="fragment">
+<p><strong>Why n - 2?</strong> Any 2 points perfectly determine a line!</p>
+<div style="display: flex; gap: 20px; align-items: center;">
+<div style="flex: 1;">
+${Plot.plot({
+  marks: [
+    Plot.dot([{x: 2, y: 3}, {x: 5, y: 7}], {x: "x", y: "y", fill: "#e74c3c", r: 8}),
+    Plot.line([{x: 0, y: 0.6}, {x: 7, y: 9.4}], {x: "x", y: "y", stroke: "#3498db", strokeWidth: 3}),
+    Plot.text([{x: 3.5, y: 8, text: "Perfect fit with 2 points!"}], 
+      {x: "x", y: "y", text: "text", fontSize: 14, fill: "#e74c3c", fontWeight: "bold"})
+  ],
+  x: {label: "x", domain: [0, 7]},
+  y: {label: "y", domain: [0, 10]},
+  width: 300,
+  height: 250,
+  grid: true
+})}
+</div>
+<div style="flex: 1;">
+<p style="font-size: 14px;">
+- With <strong>2 data points</strong>, we estimate 2 parameters (β₀, β₁)<br>
+- The line passes through both points exactly<br>
+- <strong>No degrees of freedom left!</strong> (2 - 2 = 0)<br>
+- Need at least n = 3 for meaningful inference<br>
+- Thus: df = <strong>n - 2</strong>
+</p>
+</div>
+</div>
+</div>
+`;
+}
+```
+```{ojs}
+//| echo: false
+html`
+<div class="fragment">
+<p><strong>Case 2: Multiple Regression with 2 predictors (p = 2)</strong></p>
+<p>Adjustment factor: <strong>n - 2 - 1 = n - 3</strong></p>
+</div>
+`
+```
+```{ojs}
+//| echo: false
+{
+  return html`
+<div class="fragment">
+<p><strong>Why n - 3?</strong> Any 3 points perfectly determine a plane!</p>
+<div style="display: flex; gap: 20px; align-items: center;">
+<div style="flex: 1;">
+<div style="position: relative; width: 300px; height: 250px; background: #f8f9fa; border: 2px solid #3498db; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+<svg width="280" height="230" viewBox="0 0 280 230">
+<!-- 3D plane representation -->
+<polygon points="50,180 230,180 210,80 70,80" fill="#3498db" opacity="0.3" stroke="#3498db" stroke-width="2"/>
+<!-- 3 points on the plane -->
+<circle cx="80" cy="160" r="6" fill="#e74c3c"/>
+<circle cx="180" cy="140" r="6" fill="#e74c3c"/>
+<circle cx="140" cy="100" r="6" fill="#e74c3c"/>
+<!-- Labels -->
+<text x="80" y="180" font-size="12" fill="#e74c3c" font-weight="bold">(x₁, x₂, y)₁</text>
+<text x="180" y="160" font-size="12" fill="#e74c3c" font-weight="bold">(x₁, x₂, y)₂</text>
+<text x="140" y="90" font-size="12" fill="#e74c3c" font-weight="bold">(x₁, x₂, y)₃</text>
+<text x="120" y="200" font-size="14" fill="#3498db" font-weight="bold">Fitted Plane</text>
+<!-- Axes -->
+<line x1="20" y1="200" x2="120" y2="200" stroke="#7f8c8d" stroke-width="2" marker-end="url(#arrowhead)"/>
+<text x="125" y="205" font-size="11" fill="#7f8c8d">x₁</text>
+<line x1="20" y1="200" x2="20" y2="100" stroke="#7f8c8d" stroke-width="2" marker-end="url(#arrowhead)"/>
+<text x="5" y="95" font-size="11" fill="#7f8c8d">y</text>
+<line x1="20" y1="200" x2="60" y2="220" stroke="#7f8c8d" stroke-width="2" marker-end="url(#arrowhead)"/>
+<text x="65" y="225" font-size="11" fill="#7f8c8d">x₂</text>
+<defs>
+<marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+<polygon points="0 0, 10 3, 0 6" fill="#7f8c8d"/>
+</marker>
+</defs>
+</svg>
+</div>
+</div>
+<div style="flex: 1;">
+<p style="font-size: 14px;">
+- With <strong>3 data points</strong>, we estimate 3 parameters (β₀, β₁, β₂)<br>
+- The plane passes through all 3 points exactly<br>
+- <strong>No degrees of freedom left!</strong> (3 - 3 = 0)<br>
+- Need at least n = 4 for meaningful inference<br>
+- Thus: df = <strong>n - 3</strong>
+</p>
+</div>
+</div>
+</div>
+`;
+}
+```
+```{ojs}
+//| echo: false
+html`
+<div class="fragment">
+<p><strong>General Pattern: For p predictors</strong></p>
+<div style="background: #e8f4f8; padding: 20px; border-radius: 8px; margin: 15px 0;">
+<p style="font-size: 16px; margin: 10px 0;">
+- We estimate <strong>p + 1 parameters</strong>: β₀, β₁, β₂, ..., βₚ<br>
+- Need at least <strong>n = p + 1</strong> points to fit the model<br>
+- Degrees of freedom: <strong>df = n - (p + 1) = n - p - 1</strong><br>
+- This represents the number of observations "free to vary" after estimating all parameters
+</p>
+</div>
+</div>
+
+<div class="fragment">
+<p><strong>💡 Key Insight:</strong></p>
+<p style="background: #d4edda; padding: 15px; border-radius: 8px;">
+Adjusted R² uses <strong>(n - p - 1)</strong> to penalize models with more predictors. As p increases, df decreases, making the penalty larger. This prevents overfitting!
+</p>
+</div>
+`
+```
+
+---
+
+## 🧩 Interactive: R² vs Adjusted R² Explorer {.scrollable}
+```{ojs}
+//| panel: input
+viewof interceptPlay = Inputs.range([-50,100], {value:40, step:1, label:"Intercept (β₀)"})
+viewof slopePlay = Inputs.range([0,3], {value:0.7, step:0.01, label:"Slope (β₁)"})
+```
+```{ojs}
+{
+  // Use existing lemonadeData
+  const n = lemonadeData.length;
+  const temp = lemonadeData.map(d => d.temperature);
+  const sales = lemonadeData.map(d => d.sales);
+  
+  // Calculate fitted values using slider parameters
+  const fitY = temp.map(t => interceptPlay + slopePlay * t);
+  
+  // Calculate OLS estimates (optimal)
+  const xbar = temp.reduce((a,b) => a+b, 0) / n;
+  const ybar = sales.reduce((a,b) => a+b, 0) / n;
+  
+  let num = 0, den = 0;
+  for(let i = 0; i < n; i++) { 
+    num += (temp[i] - xbar) * (sales[i] - ybar); 
+    den += (temp[i] - xbar) * (temp[i] - xbar);
+  }
+  
+  const b1_optimal = num / den;
+  const b0_optimal = ybar - b1_optimal * xbar;
+  const fitY_optimal = temp.map(t => b0_optimal + b1_optimal * t);
+  
+  // Compute SSE, SST, R² for user's line
+  const SSE = sales.reduce((acc, yi, i) => acc + Math.pow(yi - fitY[i], 2), 0);
+  const SST = sales.reduce((acc, yi) => acc + Math.pow(yi - ybar, 2), 0);
+  const R2 = 1 - SSE / SST;
+  const p = 1; // single predictor
+  const R2_adj = 1 - (1 - R2) * (n - 1) / (n - p - 1);
+  
+  // Compute for optimal line
+  const SSE_optimal = sales.reduce((acc, yi, i) => acc + Math.pow(yi - fitY_optimal[i], 2), 0);
+  const R2_optimal = 1 - SSE_optimal / SST;
+  const R2_adj_optimal = 1 - (1 - R2_optimal) * (n - 1) / (n - p - 1);
+  
+  // Prepare data for plotting
+  const scatterData = lemonadeData.map(d => ({temp: d.temperature, sales: d.sales}));
+  const lineData = temp.map((t, i) => ({temp: t, sales: fitY[i]}));
+  const lineData_optimal = temp.map((t, i) => ({temp: t, sales: fitY_optimal[i]}));
+  
+  return html`
+    <div style="display: flex; gap: 20px; margin: 20px 0;">
+      <div style="flex: 2;">
+        ${Plot.plot({
+          marks: [
+            Plot.dot(scatterData, {x: "temp", y: "sales", fill: "#e67e22", r: 4}),
+            Plot.line(lineData, {x: "temp", y: "sales", stroke: "#e74c3c", strokeWidth: 3}),
+            Plot.line(lineData_optimal, {x: "temp", y: "sales", stroke: "#27ae60", strokeWidth: 3, strokeDasharray: "8,4"})
+          ],
+          x: {label: "Temperature (°F)"},
+          y: {label: "Sales"},
+          width: 500,
+          height: 400,
+          grid: true
+        })}
+        <div style="margin-top: 10px; font-size: 12px;">
+          <span style="color: #e74c3c;">━━━</span> Your Line &nbsp;&nbsp;
+          <span style="color: #27ae60;">- - -</span> Optimal OLS Line
+        </div>
+      </div>
+      
+      <div style="flex: 1;">
+        <div style="padding: 15px; background: #fff3cd; border-radius: 8px; margin-bottom: 15px;">
+          <h4 style="margin-top: 0; color: #e74c3c;">📊 Your Line</h4>
+          <p><strong>β₀ =</strong> ${interceptPlay.toFixed(2)}</p>
+          <p><strong>β₁ =</strong> ${slopePlay.toFixed(3)}</p>
+          <hr style="margin: 10px 0;">
+          <p style="font-size: 16px;"><strong>R² =</strong> <span style="color: #e74c3c; font-size: 18px;">${R2.toFixed(4)}</span></p>
+          <p style="font-size: 16px;"><strong>Adj R² =</strong> <span style="color: #e74c3c; font-size: 18px;">${R2_adj.toFixed(4)}</span></p>
+        </div>
+        
+        <div style="padding: 15px; background: #d4edda; border-radius: 8px;">
+          <h4 style="margin-top: 0; color: #27ae60;">✨ Optimal OLS Line</h4>
+          <p><strong>β₀ =</strong> ${b0_optimal.toFixed(2)}</p>
+          <p><strong>β₁ =</strong> ${b1_optimal.toFixed(3)}</p>
+          <hr style="margin: 10px 0;">
+          <p style="font-size: 16px;"><strong>R² =</strong> <span style="color: #27ae60; font-size: 18px;">${R2_optimal.toFixed(4)}</span></p>
+          <p style="font-size: 16px;"><strong>Adj R² =</strong> <span style="color: #27ae60; font-size: 18px;">${R2_adj_optimal.toFixed(4)}</span></p>
+        </div>
+        
+        <div style="margin-top: 15px; padding: 10px; background: #e8f4f8; border-radius: 8px;">
+          <p style="font-size: 12px; margin: 5px 0;"><strong>n =</strong> ${n} observations</p>
+          <p style="font-size: 12px; margin: 5px 0;"><strong>p =</strong> ${p} predictor</p>
+          <p style="font-size: 12px; margin: 5px 0;"><strong>df =</strong> ${n - p - 1} degrees of freedom</p>
+        </div>
+        
+        <p style="font-size: 12px; color: #7f8c8d; margin-top: 15px;">
+          💡 Adjust sliders to see how R² and Adjusted R² change!
+        </p>
+      </div>
+    </div>
+  `;
+}
+```
+
+---
+
+## 🔍 Interactive: SSR, SSE, SST Explorer {.scrollable}
+```{ojs}
+//| panel: input
+viewof interceptExplorer = Inputs.range([-100,100], {value:40, step:1, label:"Intercept (β₀)"})
+viewof slopeExplorer = Inputs.range([-3,3], {value:0.7, step:0.01, label:"Slope (β₁)"})
+```
+
+💡 **Challenge:** Adjust the sliders to minimize SSE and maximize $R^2$. Can you match the optimal line?
+```{ojs}
+//| echo: false
+optimalLine = {
+  const n = lemonadeData.length;
+  const meanTemp = lemonadeData.reduce((sum, d) => sum + d.temperature, 0) / n;
+  const meanSales = lemonadeData.reduce((sum, d) => sum + d.sales, 0) / n;
+  
+  let numerator = 0;
+  let denominator = 0;
+  for (let i = 0; i < n; i++) {
+    numerator += (lemonadeData[i].temperature - meanTemp) * (lemonadeData[i].sales - meanSales);
+    denominator += (lemonadeData[i].temperature - meanTemp) ** 2;
+  }
+  
+  const slope = numerator / denominator;
+  const intercept = meanSales - slope * meanTemp;
+  
+  return { slope, intercept };
+}
+```
+```{ojs}
+{
+  const meanSales = lemonadeData.reduce((sum, d) => sum + d.sales, 0) / lemonadeData.length;
+  const sst = lemonadeData.reduce((sum, d) => sum + (d.sales - meanSales) ** 2, 0);
+  
+  let sseExplorer = 0;
+  let ssrExplorer = 0;
+  for (let i = 0; i < lemonadeData.length; i++) {
+    const predicted = interceptExplorer + slopeExplorer * lemonadeData[i].temperature;
+    sseExplorer += (lemonadeData[i].sales - predicted) ** 2;
+    ssrExplorer += (predicted - meanSales) ** 2;
+  }
+  const rSquaredExplorer = ssrExplorer / sst;
+  
+  let sseOptimal = 0;
+  let ssrOptimal = 0;
+  for (let i = 0; i < lemonadeData.length; i++) {
+    const predicted = optimalLine.intercept + optimalLine.slope * lemonadeData[i].temperature;
+    sseOptimal += (lemonadeData[i].sales - predicted) ** 2;
+    ssrOptimal += (predicted - meanSales) ** 2;
+  }
+  const rSquaredOptimal = ssrOptimal / sst;
+
+  const temps = lemonadeData.map(d => d.temperature);
+  const minTemp = Math.min(...temps);
+  const maxTemp = Math.max(...temps);
+  const textX = maxTemp - 5;
+  const explorerY = interceptExplorer + slopeExplorer * textX;
+  const optimalY = optimalLine.intercept + optimalLine.slope * textX;
+  
+  return html`
+    <div style="display: flex; gap: 15px; margin-bottom: 20px; min-height: 600px;">
+      <div style="flex: 1; min-width: 0;">
+        <h3 style="color: #34495e; margin-top: 0;">📊 Your Explorer Line</h3>
+        <p><strong>Line:</strong> Sales = ${interceptExplorer.toFixed(2)} + ${slopeExplorer.toFixed(3)} × Temperature</p>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr style="background: #ecf0f1;">
+            <th style="padding: 8px; text-align: left; border: 1px solid #bdc3c7;">Metric</th>
+            <th style="padding: 8px; text-align: right; border: 1px solid #bdc3c7;">Value</th>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #bdc3c7;">SST (Total)</td>
+            <td style="padding: 8px; text-align: right; border: 1px solid #bdc3c7;">${sst.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #bdc3c7;">SSR (Regression)</td>
+            <td style="padding: 8px; text-align: right; border: 1px solid #bdc3c7;">${ssrExplorer.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #bdc3c7;">SSE (Error)</td>
+            <td style="padding: 8px; text-align: right; border: 1px solid #bdc3c7;">${sseExplorer.toFixed(2)}</td>
+          </tr>
+          <tr style="background: #ecf0f1; font-weight: bold;">
+            <td style="padding: 8px; border: 1px solid #bdc3c7;">R²</td>
+            <td style="padding: 8px; text-align: right; border: 1px solid #bdc3c7;">${rSquaredExplorer.toFixed(4)}</td>
+          </tr>
+        </table>
+      </div>
+      
+      <div style="flex: 1; min-width: 0;">
+        <h3 style="color: #27ae60; margin-top: 0;">✨ Optimal Line (OLS)</h3>
+        <p><strong>Line:</strong> Sales = ${optimalLine.intercept.toFixed(2)} + ${optimalLine.slope.toFixed(3)} × Temperature</p>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr style="background: #d5f4e6;">
+            <th style="padding: 8px; text-align: left; border: 1px solid #27ae60;">Metric</th>
+            <th style="padding: 8px; text-align: right; border: 1px solid #27ae60;">Value</th>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #27ae60;">SST (Total)</td>
+            <td style="padding: 8px; text-align: right; border: 1px solid #27ae60;">${sst.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #27ae60;">SSR (Regression)</td>
+            <td style="padding: 8px; text-align: right; border: 1px solid #27ae60;">${ssrOptimal.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #27ae60;">SSE (Error)</td>
+            <td style="padding: 8px; text-align: right; border: 1px solid #27ae60;">${sseOptimal.toFixed(2)}</td>
+          </tr>
+          <tr style="background: #d5f4e6; font-weight: bold;">
+            <td style="padding: 8px; border: 1px solid #27ae60;">R²</td>
+            <td style="padding: 8px; text-align: right; border: 1px solid #27ae60;">${rSquaredOptimal.toFixed(4)}</td>
+          </tr>
+        </table>
+      </div>
+      
+      <div style="flex: 1.2; min-width: 0;">
+        <h3 style="color: #2980b9; margin-top: 0;">📈 Live Visualization</h3>
+        <div style="height: 400px;">
+          ${Plot.plot({
+            marks: [
+              Plot.dot(lemonadeData, {x: "temperature", y: "sales", fill: "#e67e22", r: 3}),
+              Plot.ruleY([meanSales], {stroke: "#e74c3c", strokeWidth: 2, strokeDasharray: "5,5"}),
+              Plot.line(
+                [{temperature: minTemp, sales: interceptExplorer + slopeExplorer * minTemp},
+                 {temperature: maxTemp, sales: interceptExplorer + slopeExplorer * maxTemp}],
+                {x: "temperature", y: "sales", stroke: "#34495e", strokeWidth: 3}
+              ),
+              Plot.line(
+                [{temperature: minTemp, sales: optimalLine.intercept + optimalLine.slope * minTemp},
+                 {temperature: maxTemp, sales: optimalLine.intercept + optimalLine.slope * maxTemp}],
+                {x: "temperature", y: "sales", stroke: "#27ae60", strokeWidth: 3, strokeDasharray: "8,4"}
+              ),
+              Plot.link(
+                lemonadeData.map(d => ({
+                  x1: d.temperature,
+                  y1: d.sales,
+                  x2: d.temperature,
+                  y2: interceptExplorer + slopeExplorer * d.temperature
+                })),
+                {x1: "x1", y1: "y1", x2: "x2", y2: "y2", stroke: "#3498db", strokeWidth: 1, opacity: 0.5}
+              ),
+              Plot.text(
+                [{x: textX, y: explorerY, text: `Your Line`}],
+                {x: "x", y: "y", text: "text", fill: "#34495e", fontSize: 12, fontWeight: "bold", dx: 15, dy: 8}
+              ),
+              Plot.text(
+                [{x: textX, y: optimalY, text: `Optimal OLS`}],
+                {x: "x", y: "y", text: "text", fill: "#27ae60", fontSize: 12, fontWeight: "bold", dx: 15, dy: -8}
+              )
+            ],
+            x: {label: "Temperature (°F)"},
+            y: {label: "Sales ($)"},
+            width: 350,
+            height: 350,
+            marginTop: 10,
+            marginBottom: 30,
+            marginLeft: 45,
+            marginRight: 10,
+            grid: true
+          })}
+        </div>
+      </div>
+    </div>
+  `;
+}
+```
+
+---
+
+## 📊 Interpreting Regression Coefficients {.scrollable}
+```{ojs}
+//| echo: false
+html`
+<p>For our lemonade model: <strong>Sales = ${ssrCalcs.intercept.toFixed(2)} + ${ssrCalcs.slope.toFixed(3)} × Temperature</strong></p>
+
+<div class="fragment">
+<p><strong>Intercept (β₀ = ${ssrCalcs.intercept.toFixed(2)}):</strong></p>
+<ul>
+<li>Expected sales when temperature is 0°F</li>
+<li><strong>Question:</strong> Does this make practical sense? 🤔</li>
+<li>Often just a mathematical anchor, not always interpretable in context</li>
+</ul>
+</div>
+
+<div class="fragment">
+<p><strong>Slope (β₁ = ${ssrCalcs.slope.toFixed(3)}):</strong></p>
+<ul>
+<li>For each 1°F increase in temperature, sales increase by ~${ssrCalcs.slope.toFixed(2)} lemonades</li>
+<li>This is our <strong>marginal effect</strong> of temperature</li>
+</ul>
+</div>
+
+<div class="fragment">
+<p><strong>Practice Question:</strong> If temperature goes from 80°F to 85°F, how much do sales increase? 🤔</p>
+</div>
+
+<div class="fragment">
+<ul>
+<li><strong>Answer:</strong> 5 × ${ssrCalcs.slope.toFixed(3)} ≈ ${(5 * ssrCalcs.slope).toFixed(1)} more lemonades</li>
+</ul>
+</div>
+`
+```
+
+---
+
+## 📈 Statistical Inference in Regression {.scrollable}
+```{ojs}
+//| echo: false
+// Calculate confidence intervals for regression coefficients
+ciCalcs = {
+  const n = lemonadeData.length;
+  const meanTemp = lemonadeData.reduce((sum, d) => sum + d.temperature, 0) / n;
+  
+  // Calculate residuals and SSE
+  let sse = 0;
+  for (let i = 0; i < n; i++) {
+    const pred = ssrCalcs.intercept + ssrCalcs.slope * lemonadeData[i].temperature;
+    sse += Math.pow(lemonadeData[i].sales - pred, 2);
+  }
+  
+  // Standard error of regression
+  const s = Math.sqrt(sse / (n - 2));
+  
+  // Sum of squared deviations of x
+  const ssX = lemonadeData.reduce((sum, d) => sum + Math.pow(d.temperature - meanTemp, 2), 0);
+  
+  // Standard error of slope
+  const seBeta1 = s / Math.sqrt(ssX);
+  
+  // t-critical value for 95% CI (approximate with z = 1.96 for large n)
+  const tCrit = 1.96; // For large samples, use 2.042 for n=30
+  
+  // Confidence interval for slope
+  const ci_lower = ssrCalcs.slope - tCrit * seBeta1;
+  const ci_upper = ssrCalcs.slope + tCrit * seBeta1;
+  const margin = tCrit * seBeta1;
+  
+  return { 
+    seBeta1: seBeta1, 
+    ci_lower: ci_lower, 
+    ci_upper: ci_upper,
+    margin: margin
+  };
+}
+```
+```{ojs}
+//| echo: false
+html`
+<p>Beyond finding the best-fit line, we ask: <strong>Is the relationship real or just random noise?</strong></p>
+
+<div class="fragment">
+<p><strong>Confidence Intervals:</strong></p>
+<ul>
+<li>β₁ = ${ssrCalcs.slope.toFixed(3)} ± ${ciCalcs.margin.toFixed(3)} (95% CI)</li>
+<li>We're 95% confident the true effect is between ${ciCalcs.ci_lower.toFixed(3)} and ${ciCalcs.ci_upper.toFixed(3)}</li>
+<li>The interval ${ciCalcs.ci_lower > 0 ? "doesn't contain 0, suggesting a real effect!" : "contains 0, suggesting no significant effect."}</li>
+</ul>
+</div>
+
+<div class="fragment">
+<p><strong>Hypothesis Testing:</strong></p>
+<ul>
+<li>H₀: β₁ = 0 (temperature has <strong>no</strong> effect)</li>
+<li>H₁: β₁ ≠ 0 (temperature <strong>does</strong> affect sales)</li>
+</ul>
+</div>
+
+<div class="fragment">
+<p><strong>Question:</strong> Based on our CI [${ciCalcs.ci_lower.toFixed(3)}, ${ciCalcs.ci_upper.toFixed(3)}], can we reject H₀? 🤔</p>
+</div>
+
+<div class="fragment">
+<ul>
+<li><strong>Answer:</strong> ${ciCalcs.ci_lower > 0 ? "Yes! The 95% confidence interval excludes 0, so we reject the null hypothesis." : "No, the interval includes 0, so we fail to reject the null hypothesis."}</li>
+</ul>
+</div>
+`
+```
+
+---
+
+## 🧩 Four Key Assumptions of OLS Regression {.incremental .scrollable}
+
+::: {.columns}
+
+::: {.column width="50%"}
+```{ojs}
+{
+const temps = lemonadeData.map(d => d.temperature);
+const minTemp = Math.min(...temps);
+const maxTemp = Math.max(...temps);
+const meanSales = lemonadeData.reduce((sum, d) => sum + d.sales, 0) / lemonadeData.length;
+
+let numerator = 0, denominator = 0;
+for (let i = 0; i < lemonadeData.length; i++) {
+  numerator += (lemonadeData[i].temperature - (minTemp+maxTemp)/2) * (lemonadeData[i].sales - meanSales);
+  denominator += (lemonadeData[i].temperature - (minTemp+maxTemp)/2) ** 2;
+}
+const olsSlope = numerator / denominator;
+const olsIntercept = meanSales - olsSlope * ((minTemp+maxTemp)/2);
+
+return Plot.plot({
+  marks: [
+    Plot.dot(lemonadeData, {x: "temperature", y: "sales", fill: "#e67e22", r: 4}),
+    Plot.line(
+      [{temperature: minTemp, sales: olsIntercept + olsSlope * minTemp},
+       {temperature: maxTemp, sales: olsIntercept + olsSlope * maxTemp}],
+      {x: "temperature", y: "sales", stroke: "#27ae60", strokeWidth: 3, strokeDasharray: "8,4"}
+    ),
+    Plot.text([
+      {
+        temperature: minTemp + (maxTemp-minTemp)*0.85,
+        sales: olsIntercept + olsSlope * (minTemp + (maxTemp-minTemp)*0.85),
+        text: `OLS Line`
+      }
+    ], {
+      x: "temperature", y: "sales", text: "text", fontSize: 14, fontWeight: "bold", fill: "#27ae60", dy: -18
+    })
+  ],
+  x: {label: "Temperature (°F)"},
+  y: {label: "Sales ($)"},
+  width: 400,
+  height: 400,
+  grid: true
+});
+}
+```
+:::
+
+::: {.column width="50%"}
+
+**Four fundamental assumptions:**
+
+1. **Linearity**: The relationship between predictors and response is linear
+
+2. **Independence**: Observations are independent (no autocorrelation)
+
+3. **Homoscedasticity**: Constant variance of residuals across all predictor levels
+
+4. **Normality**: Residuals are normally distributed
+
+:::
+
+- **Why check these?** Violations lead to biased estimates, unreliable standard errors, and invalid hypothesis tests!
+
+:::
+
+---
+
+## 📊 Checking Assumption 1: Independence {.smaller .scrollable}
+```{ojs}
+{
+  const residualData = lemonadeData.map((d, index) => {
+    const predicted = optimalLine.intercept + optimalLine.slope * d.temperature;
+    const residual = d.sales - predicted;
+    return {
+      day: d.day,
+      dayIndex: index + 1,
+      residual: residual,
+      temperature: d.temperature
+    };
+  });
+  
+  return html`
+    <div style="display: flex; gap: 20px; margin: 20px 0;">
+      <div style="flex: 1;">
+        <h4 style="color: #2980b9; margin-top: 0;">Residuals vs. Time (Day)</h4>
+        ${Plot.plot({
+          marks: [
+            Plot.ruleY([0], {stroke: "#e74c3c", strokeWidth: 1, strokeDasharray: "3,3"}),
+            Plot.line(residualData, {
+              x: "dayIndex", 
+              y: "residual", 
+              stroke: "#3498db",
+              strokeWidth: 2
+            }),
+            Plot.dot(residualData, {
+              x: "dayIndex", 
+              y: "residual", 
+              fill: "#3498db", 
+              r: 6,
+              title: d => `Day ${d.day}: ${d.residual.toFixed(1)}`
+            })
+          ],
+          x: {label: "Day"},
+          y: {label: "Residuals (eᵢ)", grid: true},
+          width: 400,
+          height: 300
+        })}
+      </div>
+      
+      <div style="flex: 1;">
+        <div style="background: #e8f4f8; padding: 20px; border-radius: 8px; height: 300px;">
+          <h4 style="color: #2980b9; margin-top: 0;">✅ Independence Principle</h4>
+          <p><strong>What we check:</strong> No systematic pattern over time or observation order.</p>
+          
+          <div style="margin: 15px 0;">
+            <div style="color: #27ae60; font-weight: bold;">✓ Good (Independent):</div>
+            <ul style="margin: 8px 0; color: #27ae60; font-size: 14px;">
+              <li>Random scatter around zero</li>
+              <li>No trends or cycles</li>
+            </ul>
+          </div>
+          
+          <div style="margin: 15px 0;">
+            <div style="color: #e74c3c; font-weight: bold;">✗ Problem (Dependent):</div>
+            <ul style="margin: 8px 0; color: #e74c3c; font-size: 14px;">
+              <li>Upward/downward trends</li>
+              <li>Regular cycles or seasonality</li>
+            </ul>
+          </div>
+          
+          <p style="font-style: italic; color: #7f8c8d; font-size: 14px;">
+            <strong>Why it matters:</strong> Violations suggest omitted variables or time-based effects.
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+```
+
+---
+
+## 📊 Checking Assumption 2: Homoscedasticity {.smaller .scrollable}
+```{ojs}
+{
+  const residualData = lemonadeData.map(d => {
+    const predicted = optimalLine.intercept + optimalLine.slope * d.temperature;
+    const residual = d.sales - predicted;
+    return {
+      fitted: predicted,
+      residual: residual,
+      day: d.day
+    };
+  });
+  
+  return html`
+    <div style="display: flex; gap: 20px; margin: 20px 0;">
+      <div style="flex: 1;">
+        <h4 style="color: #2980b9; margin-top: 0;">Residuals vs. Fitted Values</h4>
+        ${Plot.plot({
+          marks: [
+            Plot.ruleY([0], {stroke: "#e74c3c", strokeWidth: 1, strokeDasharray: "3,3"}),
+            Plot.dot(residualData, {
+              x: "fitted", 
+              y: "residual", 
+              fill: "#e67e22", 
+              r: 6,
+              title: d => `eᵢ = ${d.residual.toFixed(1)}`
+            })
+          ],
+          x: {label: "Fitted Values (ŷᵢ)"},
+          y: {label: "Residuals (eᵢ)", grid: true},
+          width: 400,
+          height: 300
+        })}
+      </div>
+      
+      <div style="flex: 1;">
+        <div style="background: #fef9e7; padding: 20px; border-radius: 8px; height: 300px;">
+          <h4 style="color: #f39c12; margin-top: 0;">📏 Homoscedasticity Principle</h4>
+          <p><strong>What we check:</strong> Constant spread of residuals across all fitted values.</p>
+          
+          <div style="margin: 15px 0;">
+            <div style="color: #27ae60; font-weight: bold;">✓ Good (Homoscedastic):</div>
+            <ul style="margin: 8px 0; color: #27ae60; font-size: 14px;">
+              <li>Constant vertical spread</li>
+              <li>No funnel/cone shapes</li>
+            </ul>
+          </div>
+          
+          <div style="margin: 15px 0;">
+            <div style="color: #e74c3c; font-weight: bold;">✗ Problem (Heteroscedastic):</div>
+            <ul style="margin: 8px 0; color: #e74c3c; font-size: 14px;">
+              <li>Funnel shape (spread changes)</li>
+              <li>Systematic pattern in spread</li>
+            </ul>
+          </div>
+          
+          <p style="font-style: italic; color: #7f8c8d; font-size: 14px;">
+            <strong>Why it matters:</strong> Makes standard errors unreliable, affects hypothesis tests.
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+```
+
+---
+
+## 📊 Checking Assumption 3: Normality {.smaller .scrollable}
+```{ojs}
+{
+  const residualData = lemonadeData.map(d => {
+    const predicted = optimalLine.intercept + optimalLine.slope * d.temperature;
+    const residual = d.sales - predicted;
+    return { residual: residual, day: d.day };
+  });
+  
+  const residuals = residualData.map(d => d.residual);
+  const meanResidual = residuals.reduce((a, b) => a + b, 0) / residuals.length;
+  const stdResidual = Math.sqrt(residuals.reduce((sq, n) => sq + Math.pow(n - meanResidual, 2), 0) / (residuals.length - 1));
+  
+  const binCount = 10;
+  const minResidual = Math.min(...residuals);
+  const maxResidual = Math.max(...residuals);
+  const binWidth = (maxResidual - minResidual) / binCount;
+  
+  const bins = Array.from({length: binCount}, (_, i) => {
+    const binStart = minResidual + i * binWidth;
+    const binEnd = binStart + binWidth;
+    const count = residuals.filter(r => r >= binStart && r < binEnd).length;
+    const density = count / (residuals.length * binWidth);
+    return { binStart, binEnd, density };
+  });
+  
+  const normalCurve = [];
+  for (let x = minResidual - 5; x <= maxResidual + 5; x += 0.5) {
+    normalCurve.push({
+      x: x,
+      density: (1 / (stdResidual * Math.sqrt(2 * Math.PI))) * 
+               Math.exp(-0.5 * Math.pow((x - meanResidual) / stdResidual, 2))
+    });
+  }
+  
+  return html`
+    <div style="display: flex; gap: 20px; margin: 20px 0;">
+      <div style="flex: 1;">
+        <h4 style="color: #2980b9; margin-top: 0;">Distribution of Residuals</h4>
+        ${Plot.plot({
+          marks: [
+            Plot.rectY(
+              bins.map(bin => ({
+                x1: bin.binStart,
+                x2: bin.binEnd,
+                density: bin.density
+              })),
+              {x1: "x1", x2: "x2", y: "density", fill: "#9b59b6", fillOpacity: 0.7}
+            ),
+            Plot.ruleY([0], {stroke: "#e74c3c", strokeWidth: 1}),
+            Plot.lineY(
+              normalCurve,
+              {x: "x", y: "density", stroke: "#2c3e50", strokeWidth: 2, strokeDasharray: "3,3"}
+            )
+          ],
+          x: {label: "Residual Value"},
+          y: {label: "Density", grid: true},
+          width: 400,
+          height: 300
+        })}
+      </div>
+      
+      <div style="flex: 1;">
+        <div style="background: #f4ecf7; padding: 20px; border-radius: 8px; height: 300px;">
+          <h4 style="color: #8e44ad; margin-top: 0;">📊 Normality Principle</h4>
+          <p><strong>What we check:</strong> Residuals follow approximately normal distribution.</p>
+          
+          <div style="margin: 15px 0;">
+            <div style="color: #27ae60; font-weight: bold;">✓ Good (Normal):</div>
+            <ul style="margin: 8px 0; color: #27ae60; font-size: 14px;">
+              <li>Histogram matches normal curve</li>
+              <li>Symmetric around zero</li>
+            </ul>
+          </div>
+          
+          <div style="margin: 15px 0;">
+            <div style="color: #e74c3c; font-weight: bold;">✗ Problem (Non-normal):</div>
+            <ul style="margin: 8px 0; color: #e74c3c; font-size: 14px;">
+              <li>Heavy skew or multiple peaks</li>
+              <li>Extreme outliers</li>
+            </ul>
+          </div>
+          
+          <p style="font-style: italic; color: #7f8c8d; font-size: 13px;">
+            <strong>Stats:</strong> Mean = ${meanResidual.toFixed(2)}, SD = ${stdResidual.toFixed(2)}, n = ${residuals.length}
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+```
+
+---
+
+## ❓ Quick Check: Assumptions {.scrollable}
+```{ojs}
+//| echo: false
+html`
+<style>
+  .matching-container {
+    display: flex;
+    gap: 100px;
+    position: relative;
+    margin: 40px 0;
+    padding: 20px;
+  }
+  .matching-column {
+    flex: 1;
+  }
+  .matching-item {
+    padding: 15px;
+    margin: 15px 0;
+    border: 2px solid #3498db;
+    border-radius: 8px;
+    background: #ecf0f1;
+    font-size: 16px;
+    position: relative;
+  }
+  .line-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+</style>
+
+<p><strong>Question:</strong> Match each assumption to its consequence when violated:</p>
+
+<div style="position: relative;">
+  <div class="matching-container">
+    <div class="matching-column">
+      <div class="matching-item" style="background: #e3f2fd;">
+        <strong>1. Linearity violation</strong>
+      </div>
+      <div class="matching-item" style="background: #e3f2fd;">
+        <strong>2. Independence violation</strong>
+      </div>
+      <div class="matching-item" style="background: #e3f2fd;">
+        <strong>3. Homoscedasticity violation</strong>
+      </div>
+      <div class="matching-item" style="background: #e3f2fd;">
+        <strong>4. Normality violation</strong>
+      </div>
+    </div>
+    
+    <div class="matching-column">
+      <div class="matching-item" style="background: #fff3e0;">
+        <strong>(A)</strong> Biased coefficient estimates
+      </div>
+      <div class="matching-item" style="background: #fff3e0;">
+        <strong>(B)</strong> Unreliable standard errors
+      </div>
+      <div class="matching-item" style="background: #fff3e0;">
+        <strong>(C)</strong> Invalid hypothesis tests (especially for small samples)
+      </div>
+      <div class="matching-item" style="background: #fff3e0;">
+        <strong>(D)</strong> Incorrect predictions and R²
+      </div>
+    </div>
+    
+    <canvas class="line-canvas fragment" id="line1" width="800" height="400"></canvas>
+    <canvas class="line-canvas fragment" id="line2" width="800" height="400"></canvas>
+    <canvas class="line-canvas fragment" id="line3" width="800" height="400"></canvas>
+    <canvas class="line-canvas fragment" id="line4" width="800" height="400"></canvas>
+  </div>
+</div>
+
+<div class="fragment" style="margin-top: 20px; padding: 15px; background: #d5f4e6; border-radius: 8px;">
+  <p><strong>✓ Correct Answers:</strong></p>
+  <ul style="margin: 5px 0;">
+    <li><strong>1 → D:</strong> Linearity violation leads to incorrect predictions and R²</li>
+    <li><strong>2 → A:</strong> Independence violation leads to biased coefficient estimates</li>
+    <li><strong>3 → B:</strong> Homoscedasticity violation leads to unreliable standard errors</li>
+    <li><strong>4 → C:</strong> Normality violation leads to invalid hypothesis tests</li>
+  </ul>
+</div>
+
+<script>
+(function() {
+  function drawLine(canvasId, y1Percent, y2Percent, color) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    ctx.clearRect(0, 0, width, height);
+    ctx.strokeStyle = color || '#e74c3c';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(width * 0.42, height * y1Percent);
+    ctx.lineTo(width * 0.58, height * y2Percent);
+    ctx.stroke();
+  }
+  
+  // Draw lines with a delay to ensure DOM is ready
+  setTimeout(() => {
+    drawLine('line1', 0.15, 0.85, '#e74c3c'); // Q1 to D
+    drawLine('line2', 0.37, 0.15, '#e74c3c'); // Q2 to A
+    drawLine('line3', 0.62, 0.37, '#e74c3c'); // Q3 to B
+    drawLine('line4', 0.87, 0.62, '#e74c3c'); // Q4 to C
+  }, 500);
+  
+  // Redraw when Reveal fragments are shown
+  if (window.Reveal) {
+    Reveal.on('fragmentshown', function(event) {
+      setTimeout(() => {
+        drawLine('line1', 0.15, 0.85, '#e74c3c');
+        drawLine('line2', 0.37, 0.15, '#e74c3c');
+        drawLine('line3', 0.62, 0.37, '#e74c3c');
+        drawLine('line4', 0.87, 0.62, '#e74c3c');
+      }, 100);
+    });
+  }
+})();
+</script>
+`
+```
+
+---
+
+## 📊 Comprehensive Diagnostic Plots {.smaller .scrollable}
+
+All four essential diagnostic plots in one view:
+```{ojs}
+{
+  const residualData = lemonadeData.map((d, index) => {
+    const predicted = optimalLine.intercept + optimalLine.slope * d.temperature;
+    const residual = d.sales - predicted;
+    return {
+      day: d.day,
+      dayIndex: index + 1,
+      residual: residual,
+      fitted: predicted,
+      temperature: d.temperature,
+      sales: d.sales
+    };
+  });
+  
+  const residuals = residualData.map(d => d.residual);
+  const meanResidual = residuals.reduce((a, b) => a + b, 0) / residuals.length;
+  const stdResidual = Math.sqrt(residuals.reduce((sq, n) => sq + Math.pow(n - meanResidual, 2), 0) / (residuals.length - 1));
+  
+  const sortedResiduals = [...residuals].sort((a, b) => a - b);
+  const qqData = sortedResiduals.map((r, i) => {
+    const theoreticalQuantile = (i + 0.5) / residuals.length;
+    const z = theoreticalQuantile < 0.5 
+      ? -Math.sqrt(-2 * Math.log(theoreticalQuantile))
+      : Math.sqrt(-2 * Math.log(1 - theoreticalQuantile));
+    return {
+      theoretical: z,
+      sample: (r - meanResidual) / stdResidual
+    };
+  });
+  
+  const scaleLocationData = residualData.map(d => ({
+    fitted: d.fitted,
+    sqrtAbsResidual: Math.sqrt(Math.abs((d.residual - meanResidual) / stdResidual))
+  }));
+  
+  const meanTemp = lemonadeData.reduce((sum, d) => sum + d.temperature, 0) / lemonadeData.length;
+  const ssX = lemonadeData.reduce((sum, d) => sum + Math.pow(d.temperature - meanTemp, 2), 0);
+  
+  const leverageData = residualData.map(d => {
+    const leverage = 1/residuals.length + Math.pow(d.temperature - meanTemp, 2) / ssX;
+    const standardizedResidual = (d.residual - meanResidual) / stdResidual;
+    return {
+      leverage: leverage,
+      standardizedResidual: standardizedResidual,
+      day: d.day
+    };
+  });
+  
+  return html`
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+      
+      <!-- Plot 1: Residuals vs. Fitted -->
+      <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+        <h4 style="color: #2980b9; margin-top: 0;">1. Residuals vs. Fitted Values</h4>
+        ${Plot.plot({
+          marks: [
+            Plot.ruleY([0], {stroke: "#e74c3c", strokeWidth: 1, strokeDasharray: "3,3"}),
+            Plot.dot(residualData, {
+              x: "fitted", 
+              y: "residual", 
+              fill: "#3498db", 
+              r: 5,
+              title: d => `Day ${d.day}: eᵢ = ${d.residual.toFixed(1)}`
+            }),
+            Plot.line(
+              residualData.map(d => d).sort((a, b) => a.fitted - b.fitted),
+              Plot.windowY({k: 5, reduce: "mean", x: "fitted", y: "residual", stroke: "#e67e22", strokeWidth: 2})
+            )
+          ],
+          x: {label: "Fitted Values (ŷᵢ)"},
+          y: {label: "Residuals (eᵢ = yᵢ - ŷᵢ)", grid: true},
+          width: 350,
+          height: 280
+        })}
+        <p style="font-size: 12px; color: #7f8c8d; margin-top: 8px;">
+          <strong>Formula:</strong> eᵢ = yᵢ - ŷᵢ<br>
+          <strong>Checks:</strong> Linearity & Homoscedasticity<br>
+          <strong>Look for:</strong> Random scatter, no patterns
+        </p>
+      </div>
+      
+      <!-- Plot 2: Q-Q Plot -->
+      <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+        <h4 style="color: #8e44ad; margin-top: 0;">2. Normal Q-Q Plot</h4>
+        ${Plot.plot({
+          marks: [
+            Plot.line(
+              [{x: -3, y: -3}, {x: 3, y: 3}],
+              {x: "x", y: "y", stroke: "#e74c3c", strokeWidth: 1, strokeDasharray: "3,3"}
+            ),
+            Plot.dot(qqData, {
+              x: "theoretical", 
+              y: "sample", 
+              fill: "#9b59b6", 
+              r: 5,
+              title: d => `Theoretical: ${d.theoretical.toFixed(2)}, Sample: ${d.sample.toFixed(2)}`
+            })
+          ],
+          x: {label: "Theoretical Quantiles"},
+          y: {label: "Standardized Residuals (rᵢ)", grid: true},
+          width: 350,
+          height: 280
+        })}
+        <p style="font-size: 12px; color: #7f8c8d; margin-top: 8px;">
+          <strong>Formula:</strong> rᵢ = (eᵢ - ē) / sₑ, sₑ = √[Σeᵢ²/(n-2)]<br>
+          <strong>Checks:</strong> Normality of Residuals<br>
+          <strong>Look for:</strong> Points on diagonal line
+        </p>
+      </div>
+      
+      <!-- Plot 3: Scale-Location -->
+      <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+        <h4 style="color: #e67e22; margin-top: 0;">3. Scale-Location Plot</h4>
+        ${Plot.plot({
+          marks: [
+            Plot.dot(scaleLocationData, {
+              x: "fitted", 
+              y: "sqrtAbsResidual", 
+              fill: "#e67e22", 
+              r: 5,
+              title: d => `√|rᵢ| = ${d.sqrtAbsResidual.toFixed(2)}`
+            }),
+            Plot.line(
+              scaleLocationData.map(d => d).sort((a, b) => a.fitted - b.fitted),
+              Plot.windowY({k: 5, reduce: "mean", x: "fitted", y: "sqrtAbsResidual", stroke: "#c0392b", strokeWidth: 2})
+            )
+          ],
+          x: {label: "Fitted Values (ŷᵢ)"},
+          y: {label: "√|Standardized Residuals| = √|rᵢ|", grid: true},
+          width: 350,
+          height: 280
+        })}
+        <p style="font-size: 12px; color: #7f8c8d; margin-top: 8px;">
+          <strong>Formula:</strong> √|rᵢ| = √|(eᵢ - ē) / sₑ|<br>
+          <strong>Checks:</strong> Homoscedasticity<br>
+          <strong>Look for:</strong> Horizontal line, constant spread
+        </p>
+      </div>
+      
+      <!-- Plot 4: Residuals vs. Leverage -->
+      <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+        <h4 style="color: #27ae60; margin-top: 0;">4. Residuals vs. Leverage</h4>
+        ${Plot.plot({
+          marks: [
+            Plot.ruleY([0], {stroke: "#e74c3c", strokeWidth: 1, strokeDasharray: "3,3"}),
+            Plot.ruleY([2, -2], {stroke: "#e74c3c", strokeWidth: 1, opacity: 0.3}),
+            Plot.dot(leverageData, {
+              x: "leverage", 
+              y: "standardizedResidual", 
+              fill: "#27ae60", 
+              r: 5,
+              title: d => `Day ${d.day}: hᵢᵢ=${d.leverage.toFixed(3)}, rᵢ=${d.standardizedResidual.toFixed(2)}`
+            })
+          ],
+          x: {label: "Leverage (hᵢᵢ)", domain: [0, Math.max(...leverageData.map(d => d.leverage)) * 1.1]},
+          y: {label: "Standardized Residuals (rᵢ)", grid: true},
+          width: 350,
+          height: 280
+        })}
+        <p style="font-size: 12px; color: #7f8c8d; margin-top: 8px;">
+          <strong>Formula:</strong> hᵢᵢ = 1/n + (xᵢ - x̄)² / Σ(xⱼ - x̄)²<br>
+          <strong>Checks:</strong> Influential Observations<br>
+          <strong>Look for:</strong> High leverage + large residuals
+        </p>
+      </div>
+      
+    </div>
+    
+    <div style="background: #e8f4f8; padding: 15px; border-radius: 8px; margin-top: 20px;">
+      <h4 style="color: #2c3e50; margin-top: 0;">📋 Quick Interpretation Guide</h4>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+        <div>
+          <p style="margin: 5px 0;"><strong style="color: #2980b9;">📐 Key Formulas:</strong></p>
+          <ul style="margin: 5px 0; font-size: 12px;">
+            <li><strong>Raw residual:</strong> eᵢ = yᵢ - ŷᵢ</li>
+            <li><strong>Standardized:</strong> rᵢ = (eᵢ - ē) / sₑ</li>
+            <li><strong>Leverage:</strong> hᵢᵢ ∈ [1/n, 1]</li>
+            <li><strong>Avg leverage:</strong> (p+1)/n = 2/n</li>
+          </ul>
+        </div>
+        <div>
+          <p style="margin: 5px 0;"><strong style="color: #27ae60;">✓ Good Signs:</strong></p>
+          <ul style="margin: 5px 0; font-size: 12px;">
+            <li>Random scatter in plots 1 & 3</li>
+            <li>Points on diagonal in Q-Q plot</li>
+            <li>No high-leverage outliers</li>
+            <li>Horizontal smoothing lines</li>
+          </ul>
+        </div>
+        <div>
+          <p style="margin: 5px 0;"><strong style="color: #e74c3c;">✗ Warning Signs:</strong></p>
+          <ul style="margin: 5px 0; font-size: 12px;">
+            <li>Patterns/curves in residual plots</li>
+            <li>Funnel shapes (heteroscedasticity)</li>
+            <li>Points far from Q-Q diagonal</li>
+            <li>hᵢᵢ > 2(p+1)/n with |rᵢ| > 2</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  `;
+}
+```
+---
+
+## 🎯 Summary: Simple Linear Regression {.scrollable}
+
+::: {style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; margin: 20px 0;"}
+
+### 🎓 What We've Learned {style="color: white; margin-top: 0;"}
+
+::: {style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;"}
+
+::: {style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;"}
+#### 📐 The Model {style="color: #ffd700; margin-top: 0;"}
+- y = β₀ + β₁x + ε
+- OLS minimizes SSE
+- Closed-form solution exists
+- Line passes through (x̄, ȳ)
+:::
+
+::: {style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;"}
+#### 📊 Evaluation {style="color: #ffd700; margin-top: 0;"}
+- R² measures fit (0 to 1)
+- Adjusted R² penalizes complexity
+- SST = SSR + SSE
+- Confidence intervals & hypothesis tests
+:::
+
+::: {style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;"}
+#### ✅ Assumptions (LINE) {style="color: #ffd700; margin-top: 0;"}
+- **L**inearity of relationship
+- **I**ndependence of errors
+- **N**ormality of residuals
+- **E**qual variance (homoscedasticity)
+:::
+
+::: {style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;"}
+#### 🔍 Diagnostics {style="color: #ffd700; margin-top: 0;"}
+- Residual plots check assumptions
+- Q-Q plot for normality
+- Leverage identifies influential points
+- 4 key diagnostic plots
+:::
+
+:::
+
+::: {style="background: rgba(255,255,255,0.15); padding: 20px; border-radius: 8px; margin-top: 20px; border: 2px solid #ffd700; text-align: center;"}
+**🎯 Key Takeaway:** Simple linear regression provides a powerful framework for understanding relationships between two variables - but real-world problems often involve multiple predictors...
+:::
+
+:::
+
+---
+
+## 🚀 Next Steps: Multiple Linear Regression {.scrollable}
+
+**What if sales depend on MULTIPLE factors simultaneously?**
+
+$$
+\text{Sales} = \beta_0 + \beta_1 \times \text{Temp} + \beta_2 \times \text{Rain} + \beta_3 \times \text{YellowShirt} + \beta_4 \times \text{BigPurchase} + \varepsilon
+$$
+```{ojs}
+//| echo: false
+html`
+<div style="background: #e8f4f8; padding: 25px; border-radius: 12px; margin: 20px 0;">
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+
+<div>
+<h4 style="color: #2980b9; margin-top: 0;">🎯 Key Extensions</h4>
+<ul>
+<li><strong>Partial effects:</strong> Each β shows effect "holding others constant"</li>
+<li><strong>Matrix notation:</strong> β̂ = (XᵀX)⁻¹Xᵀy</li>
+<li><strong>Same assumptions</strong> apply (LINE)</li>
+<li><strong>Standardized coefficients</strong> compare effect sizes</li>
+</ul>
+</div>
+
+<div>
+<h4 style="color: #27ae60; margin-top: 0;">💡 What Doesn't Change</h4>
+<ul>
+<li>Still minimize SSE (OLS principle)</li>
+<li>Still check diagnostic plots</li>
+<li>Still interpret coefficients carefully</li>
+<li>Still use R² / Adjusted R²</li>
+</ul>
+</div>
+
+</div>
+
+<div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-top: 20px;">
+<p style="margin: 5px 0;"><strong>📚 For Further Study:</strong></p>
+<ul style="margin: 5px 0; font-size: 14px;">
+<li>Check out the full slides for matrix derivations and interactive examples</li>
+<li>Explore multicollinearity, interaction terms, and model selection</li>
+<li>Practice with real datasets (beyond lemonade stands!)</li>
+</ul>
+</div>
+
+</div>
+`
+```
+
+---
+
+## 🌟 Teaching Philosophy
+
+::: {style="background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%); color: white; padding: 30px; border-radius: 15px;"}
+
+*"Education is one tree shaking another tree, one cloud pushing another cloud, one soul awakening another soul."*
+
+**— Karl Jaspers**
+
+:::
+
+---
+
+## 🌟 Teaching Philosophy: Education as Transformation {.scrollable}
+
+<br>
+
+::: {.fragment}
+### 🔥 **Awe for Education**
+*The Power of Transformation*
+
+From China to Saudi Arabia to the United States, education opened global opportunities. I've witnessed how knowledge bridges cultures and creates new possibilities.
+:::
+
+::: {.fragment}
+### 💝 **Recent Graduate Perspective** 
+*I Remember What Students Need*
+
+Graduated < 3 years ago and have started computer science and investment self-learning. I deeply remember:
+
+- The confusion of abstract concepts
+- The joy of "aha!" moments  
+- What makes teaching click
+:::
+
+::: {.fragment}
+### 🚀 **AI-Enhanced Future**
+*Preparing for Tomorrow*
+
+AI is revolutionizing everything. Students need:
+
+- Critical thinking > rote skills
+- Human + AI collaboration
+- Adaptability & creativity
+:::
+
+---
+
+## 💫 Core Philosophy 1: The Transformative Power of Education {.scrollable}
+
+::: {.columns}
+
+::: {.column width="50%"}
+
+::: {.fragment}
+```{mermaid}
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#dbeafe','primaryTextColor':'#1e40af','primaryBorderColor':'#3b82f6','lineColor':'#3b82f6','secondaryColor':'#fef3c7','tertiaryColor':'#d1fae5'}}}%%
+graph TB
+  A[China's University of Political Science and Law,<br/> China<br/>Free/Almost Free Education before Bachelor,<br/> and Bachelor education in Math and Economics] -->|Gratitude| B[ King Abdullah University of Science and Technology,<br/>  Saudi Arabia<br/>Scholarship-Supported Master & PhD in Statistics]
+  B -->|Continued Learning| C[🌍 Global Research<br/>St. Jude Children's Research Hospital]
+  C -->|Giving Back| D[👨‍🏫 Teaching<br/>Next Generation]
+    
+  style A fill:#fef3c7,stroke:#f59e0b,stroke-width:3px
+  style B fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
+  style C fill:#d1fae5,stroke:#10b981,stroke-width:2px
+  style D fill:#fce7f3,stroke:#ec4899,stroke-width:4px
+```
+:::
+
+
+:::
+
+
+::: {.column width="50%"}
+
+::: {.fragment style="background: #fef3c7; padding: 20px; border-radius: 10px; margin: 10px 0; border-left: 5px solid #f59e0b;"}
+#### 🌱 **My Story: Education Changed Everything**
+
+**My Mother's Wisdom:**
+  
+*"Even in wealth, don't spoil your children; even in poverty, never skimp on education"*
+
+My family lived this truth—no matter our circumstances, education was our most sacred investment.
+
+**The Truth I Learned:**  
+Education doesn't just teach skills—it **changes destinies**.
+:::
+
+::: {.fragment style="background: #dbeafe; padding: 20px; border-radius: 10px; margin: 10px 0; border-left: 5px solid #3b82f6;"}
+#### 🎯 **My Teaching Commitment**
+
+Every student in my classroom deserves:
+
+✨ **To see their potential**  
+✨ **To feel the power of knowledge**  
+✨ **To believe they can transform their future**
+
+*I teach with the reverence education deserves.*
+:::
+
+:::
+
+:::
+
+---
+
+## 🎓 Core Philosophy 2: Teaching with Fresh Eyes {.scrollable}
+
+::: {style="background: linear-gradient(135deg, #e0f2fe 0%, #ddd6fe 100%); padding: 30px; border-radius: 12px; margin: 20px 0;"}
+
+::: {.fragment}
+### **The Advantage of Being a Recent Graduate (< 3 years)**
+:::
+
+::: {style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 25px;"}
+
+::: {.fragment}
+#### 🧠 **I Remember the Struggle**
+
+::: {style="background: white; padding: 15px; border-radius: 8px; margin: 10px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"}
+**As a student, I experienced:**
+
+- 😰 The panic before understanding clicks
+- 🤯 The overwhelm of new notation
+- 😤 Frustration with "obvious" explanations
+- ✨ The euphoria of breakthroughs
+
+**Now as a teacher:** I design lessons to minimize struggle, maximize breakthroughs.
+:::
+:::
+
+::: {.fragment}
+#### 💡 **I Know What Actually Helps**
+
+::: {.fragment style="background: white; padding: 15px; border-radius: 8px; margin: 10px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"}
+**Students need:**
+ 
+✅ **Visual intuition** (before theory)   
+✅ **Why it matters** (motivation first)  
+✅ **Practical application** (knowledge → productivity)
+
+**My father's wisdom guides my teaching:**
+ 
+*"The essence of education is not excellent test grades, but how to use knowledge to boost productivity and optimize systems."*
+
+:::
+:::
+
+:::
+
+:::
+
+---
+
+## 🤖 Core Philosophy 3: Teaching in the AI Era {.scrollable}
+
+::: {.columns}
+
+::: {.column width="50%"}
+
+::: {.fragment style="background: #f0fdf4; padding: 20px; border-radius: 10px; margin: 10px 0; border-left: 5px solid #10b981;"}
+#### 🌊 **The AI Revolution is Here**
+
+**The landscape is changing:**
+
+- 🤖 AI can code, analyze, explain
+- 📊 Technical skills alone aren't enough
+- 💡 **Human judgment** becomes premium
+- 🚀 Entrepreneurs + AI = exponential impact
+:::
+
+::: {.fragment style="background: #fef2f2; padding: 20px; border-radius: 10px; margin: 10px 0; border-left: 5px solid #ef4444;"}
+#### ⚠️ **What This Means for Teaching**
+
+**Traditional approach = obsolete:**
+
+❌ Memorizing formulas (AI does this)  
+❌ Routine calculations (AI automates)  
+❌ Following recipes (AI executes)
+
+**New imperative:**
+
+✅ **Critical thinking**: When to use what  
+✅ **Problem formulation**: Ask right questions  
+✅ **Human + AI collaboration**: Amplify intelligence
+:::
+
+
+::: {.fragment style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-top: 15px; text-align: center; font-weight: bold; border: 2px dashed #f59e0b;"}
+
+Students don't just need grades—they need to see how knowledge **boosts productivity**, **solves real problems**, and **creates value** in an AI-augmented world.
+:::
+
+:::
+
+::: {.column width="50%"}
+
+::: {.fragment style="background: linear-gradient(135deg, #e0e7ff 0%, #fce7f3 100%); padding: 25px; border-radius: 12px; border: 3px solid #8b5cf6;"}
+#### 🎯 **My AI-Enhanced Teaching Philosophy**
+
+**Guided by Lao Tzu (~2500 years ago):**  *(Great truths are always simple)*
+
+**1. 🧭 Teach Fundamental Principles, Not Just Techniques**
+
+- Why OLS works (geometry + calculus + linear algebra)
+- Same principles appear in economics, physics, machine learning
+- **Break academic barriers** - statistics connects everything!
+
+**2. 🎨 Foster Cross-Disciplinary Thinking**
+
+- Today: Math → Statistics → Medicine → Business
+- Fundamental knowledge is universal
+- Innovation happens at intersections
+
+**3. 🤝 Model Human-AI Collaboration**
+
+- I built today's slides with AI assistance
+- Used AI for code, but **I** designed ideas and pedagogy
+- **This is the future:** Humans lead, AI assists
+
+**4. 💪 Focus on Productivity & Real Impact**
+
+- Not just "get A's" → "solve real problems"
+- How does this optimize pipelines?
+- How does this boost productivity?
+- **Knowledge → Application → Value**
+
+:::
+
+:::
+
+:::
+
+---
+
+## 🌈 My Vision: Education for the 21st Century
+
+**Bringing It All Together**
+
+::: {style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 20px;"}
+
+::: {style="background: #fbbf24; color: #1f2937; padding: 20px; border-radius: 10px;"}
+**🔥 Transformation**
+
+Every lesson honors the power of education to change lives and the potential in every student.
+:::
+
+::: {style="background: #34d399; color: #1f2937; padding: 20px; border-radius: 10px;"}
+**💝 Empathy**
+
+I teach with empathy because I remember student struggles and care deeply about each learning journey.
+:::
+
+::: {style="background: #60a5fa; color: white; padding: 20px; border-radius: 10px;"}
+**🚀 Innovation**
+
+I teach with innovation—using AI and interactive methods to prepare students for tomorrow's world.
+:::
+
+:::
+
+---
+
+## 🙏 Thank You
+
+**Questions & Discussion**
+
+> *"The great teacher inspires."* — William Arthur Ward
+
+**Let's Discuss:**
+
+- How do you see AI shaping statistical education?
+
+- What teaching challenges concern you most?
+
+- How can we prepare students for an uncertain future?
+
+**Dr. Zhuo Qu**  
+*Transforming lives through education, one student at a time*
